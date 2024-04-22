@@ -10,6 +10,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/baronight/assessment-tax/databases"
 	_ "github.com/baronight/assessment-tax/docs"
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
@@ -23,6 +24,11 @@ func main() {
 	if port == "" {
 		port = "1323"
 	}
+	db, err := databases.New()
+	if err != nil {
+		panic(err)
+	}
+
 	e := echo.New()
 	// setup swagger document
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
@@ -51,6 +57,14 @@ func main() {
 	<-shutdownCtx.Done()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	fmt.Println()
+	// close db
+	if err := db.Db.Close(); err != nil {
+		e.Logger.Fatal(err)
+	} else {
+		fmt.Println("closing database connection")
+	}
+	// close server
 	if err := e.Shutdown(ctx); err != nil {
 		e.Logger.Fatal(err)
 	} else {
