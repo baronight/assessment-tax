@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/baronight/assessment-tax/models"
+	"github.com/baronight/assessment-tax/validators"
 	"github.com/labstack/echo/v4"
 )
 
@@ -87,17 +88,39 @@ func setup(method, url string, body io.Reader) (res *httptest.ResponseRecorder, 
 }
 func TestTaxCalculateHandler(t *testing.T) {
 	t.Run("given not valid request body should return status 400 with validate message", func(t *testing.T) {
-		body, _ := json.Marshal(models.TaxRequest{TotalIncome: -1})
-		res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
+		t.Run("when total income is not valid should get error message ErrTotalIncomeInvalid", func(t *testing.T) {
+			body, _ := json.Marshal(models.TaxRequest{TotalIncome: -1})
+			res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
 
-		h.TaxCalculateHandler(c)
+			h.TaxCalculateHandler(c)
 
-		stub.assertMethodWasNotCalled(t, "TaxCalculate")
-		assertHttpCode(t, http.StatusBadRequest, res.Code)
-		got := decodeErrorResponse(t, res)
-		if got.Message == "" {
-			t.Errorf("expect error message should not be empty")
-		}
+			stub.assertMethodWasNotCalled(t, "TaxCalculate")
+			assertHttpCode(t, http.StatusBadRequest, res.Code)
+			got := decodeErrorResponse(t, res)
+			assertErrorMessage(t, validators.ErrTotalIncomeInvalid.Error(), got.Message)
+		})
+		t.Run("when wht is not valid should get error message ErrWhtInvalid", func(t *testing.T) {
+			body, _ := json.Marshal(models.TaxRequest{Wht: -1})
+			res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
+
+			h.TaxCalculateHandler(c)
+
+			stub.assertMethodWasNotCalled(t, "TaxCalculate")
+			assertHttpCode(t, http.StatusBadRequest, res.Code)
+			got := decodeErrorResponse(t, res)
+			assertErrorMessage(t, validators.ErrWhtInvalid.Error(), got.Message)
+		})
+		t.Run("when wht is more than income should get error message ErrWhtMoreThanIncome", func(t *testing.T) {
+			body, _ := json.Marshal(models.TaxRequest{TotalIncome: 200_000, Wht: 300_000})
+			res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
+
+			h.TaxCalculateHandler(c)
+
+			stub.assertMethodWasNotCalled(t, "TaxCalculate")
+			assertHttpCode(t, http.StatusBadRequest, res.Code)
+			got := decodeErrorResponse(t, res)
+			assertErrorMessage(t, validators.ErrWhtMoreThanIncome.Error(), got.Message)
+		})
 	})
 
 	t.Run("given valid total income should return status 200 with tax value", func(t *testing.T) {
