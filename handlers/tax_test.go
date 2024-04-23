@@ -88,7 +88,7 @@ func setup(method, url string, body io.Reader) (res *httptest.ResponseRecorder, 
 func TestTaxCalculateHandler(t *testing.T) {
 	t.Run("given not valid request body should return status 400 with validate message", func(t *testing.T) {
 		body, _ := json.Marshal(models.TaxRequest{TotalIncome: -1})
-		res, c, h, stub := setup(http.MethodPost, "/tax/calculate", strings.NewReader(string(body)))
+		res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
 
 		h.TaxCalculateHandler(c)
 
@@ -111,7 +111,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 				},
 			},
 		})
-		res, c, h, stub := setup(http.MethodPost, "/tax/calculate", strings.NewReader(string(body)))
+		res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
 		stub.response = models.TaxResponse{
 			Tax: 29000.0,
 		}
@@ -138,7 +138,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 				},
 			},
 		})
-		res, c, h, stub := setup(http.MethodPost, "/tax/calculate", strings.NewReader(string(body)))
+		res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
 		stub.err = ErrInternalServer
 
 		h.TaxCalculateHandler(c)

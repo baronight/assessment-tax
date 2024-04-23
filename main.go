@@ -46,7 +46,7 @@ func main() {
 	taxService := services.NewTaxService(db)
 	taxHandler := handlers.NewTaxHandlers(taxService)
 	groupTax := e.Group("/tax")
-	groupTax.POST("/calculate", taxHandler.TaxCalculateHandler)
+	groupTax.POST("/calculations", taxHandler.TaxCalculateHandler)
 
 	// make graceful shutdown
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
