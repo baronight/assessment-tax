@@ -12,7 +12,8 @@ type Allowance struct {
 } //@Name Allowance
 
 type TaxResponse struct {
-	Tax float32 `json:"tax"`
+	Tax       float32 `json:"tax"`
+	TaxRefund float32 `json:"taxRefund,omitempty"`
 } //@Name TaxResponse
 
 type TaxStep struct {

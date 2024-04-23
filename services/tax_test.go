@@ -2,12 +2,13 @@ package services
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/baronight/assessment-tax/models"
 )
 
-type TestCaseTaxSuite struct {
+type TaxTestSuite struct {
 	name   string
 	stub   StubStore
 	want   models.TaxResponse
@@ -36,13 +37,21 @@ func setupTaxService(stub StubStore) *TaxService {
 	return service
 }
 
+var expectNilErrMsg = "unexpect error should be null"
+
+func expectTaxValueMsg(want, got float32) string {
+	return fmt.Sprintf("expect tax should be %.2f, but got %.2f", want, got)
+}
+func assertObjectIsEqual(t *testing.T, want, got interface{}) {
+	t.Helper()
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("expect object should be %v, but got %v", want, got)
+	}
+}
+
 func TestTaxCalculate(t *testing.T) {
 	t.Run("given input only total income and personal deduction is 60000", func(t *testing.T) {
-		expectNilErrMsg := "unexpect error should be null"
-		expectTaxValueMsg := func(want, got float32) string {
-			return fmt.Sprintf("expect tax should be %.2f, but got %.2f", want, got)
-		}
-		testSuites := []TestCaseTaxSuite{
+		testSuites := []TaxTestSuite{
 			{
 				name:   "when total income is lower than 150_000 then tax should be 0",
 				want:   models.TaxResponse{Tax: 0},
@@ -103,6 +112,33 @@ func TestTaxCalculate(t *testing.T) {
 
 				assertIsNil(t, err, expectNilErrMsg)
 				assertIsEqual(t, tc.want.Tax, result.Tax, expectTaxValueMsg(tc.want.Tax, result.Tax))
+				assertObjectIsEqual(t, tc.want, result)
+			})
+		}
+	})
+
+	t.Run("given input with income and wht with personal deduction is 60_000", func(t *testing.T) {
+		testSuites := []TaxTestSuite{
+			{
+				name:   "when input wht = 25_000 and income = 500_000 then tax should be 4_000",
+				want:   models.TaxResponse{Tax: 4_000},
+				params: models.TaxRequest{TotalIncome: 500_000, Wht: 25_000},
+			},
+			{
+				name:   "when input wht = 30_000 and income = 500_000 then tax should be 0 and taxRefund should be 1_000",
+				want:   models.TaxResponse{TaxRefund: 1_000},
+				params: models.TaxRequest{TotalIncome: 500_000, Wht: 30_000},
+			},
+		}
+
+		for _, tc := range testSuites {
+			t.Run(tc.name, func(t *testing.T) {
+				service := setupTaxService(tc.stub)
+
+				result, err := service.TaxCalculate(tc.params)
+
+				assertIsNil(t, err, expectNilErrMsg)
+				assertObjectIsEqual(t, tc.want, result)
 			})
 		}
 	})

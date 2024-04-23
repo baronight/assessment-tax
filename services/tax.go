@@ -50,5 +50,13 @@ func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, e
 			result.Tax += remain * v.Rate
 		}
 	}
+
+	if tax.Wht > result.Tax {
+		// over payment tax should refund
+		result.TaxRefund = tax.Wht - result.Tax
+		result.Tax = 0
+	} else {
+		result.Tax = result.Tax - tax.Wht
+	}
 	return result, nil
 }

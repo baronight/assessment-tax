@@ -22,15 +22,11 @@ var (
 )
 
 func ValidateTaxRequest(tax models.TaxRequest) error {
-	err := ValidateTotalIncome(tax.TotalIncome)
-	if err != nil {
+	if err := ValidateTotalIncome(tax.TotalIncome); err != nil {
 		return err
 	}
-	if tax.Wht < 0 {
-		return ErrWhtInvalid
-	}
-	if tax.Wht > tax.TotalIncome {
-		return ErrWhtMoreThanIncome
+	if err := ValidateWht(tax.Wht, tax.TotalIncome); err != nil {
+		return err
 	}
 	for _, v := range tax.Allowances {
 		if v.Type != string(Donation) && v.Type != string(KReceipt) {
@@ -46,6 +42,16 @@ func ValidateTaxRequest(tax models.TaxRequest) error {
 func ValidateTotalIncome(totalIncome float32) error {
 	if totalIncome < 0 {
 		return ErrTotalIncomeInvalid
+	}
+	return nil
+}
+
+func ValidateWht(wht, totalIncome float32) error {
+	if wht < 0 {
+		return ErrWhtInvalid
+	}
+	if wht > totalIncome {
+		return ErrWhtMoreThanIncome
 	}
 	return nil
 }

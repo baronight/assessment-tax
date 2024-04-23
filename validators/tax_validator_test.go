@@ -33,14 +33,42 @@ func TestValidateTotalIncome(t *testing.T) {
 		assertErrorMessage(t, ErrTotalIncomeInvalid, err)
 	})
 
-	t.Run("given total income is equal 0 should get null error", func(t *testing.T) {
+	t.Run("given total income is equal 0 should not get error", func(t *testing.T) {
 		err := ValidateTotalIncome(0)
 
 		assertIsNil(t, err)
 	})
 
-	t.Run("given total income more than 0 should get null error", func(t *testing.T) {
+	t.Run("given total income more than 0 should not get error", func(t *testing.T) {
 		err := ValidateTotalIncome(500000)
+
+		assertIsNil(t, err)
+	})
+}
+
+func TestValidateWht(t *testing.T) {
+	t.Run("given wht is less than 0 should get error 'ErrWhtInvalid'", func(t *testing.T) {
+		err := ValidateWht(-1, 0)
+
+		assertIsNotNil(t, err)
+		assertErrorMessage(t, ErrWhtInvalid, err)
+	})
+
+	t.Run("given wht is more than income should get error 'ErrWhtMoreThanIncome", func(t *testing.T) {
+		err := ValidateWht(0.1, 0)
+
+		assertIsNotNil(t, err)
+		assertErrorMessage(t, ErrWhtMoreThanIncome, err)
+	})
+
+	t.Run("given wht is less than income should not get error", func(t *testing.T) {
+		err := ValidateWht(0, 200)
+
+		assertIsNil(t, err)
+	})
+
+	t.Run("given wht is equal income should not get error", func(t *testing.T) {
+		err := ValidateWht(200, 200)
 
 		assertIsNil(t, err)
 	})
