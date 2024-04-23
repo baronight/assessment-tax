@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/baronight/assessment-tax/databases"
+	"github.com/baronight/assessment-tax/db"
 	_ "github.com/baronight/assessment-tax/docs"
+	"github.com/baronight/assessment-tax/handlers"
+	"github.com/baronight/assessment-tax/services"
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
@@ -24,18 +27,26 @@ func main() {
 	if port == "" {
 		port = "1323"
 	}
-	db, err := databases.New()
+	db, err := db.New()
 	if err != nil {
 		panic(err)
 	}
 
 	e := echo.New()
+	// e.Validator = &models.CustomValidator{Validator: validator.New()}
+
+	e.Use(middleware.Logger(), middleware.Recover())
 	// setup swagger document
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, Go Bootcamp!")
 	})
+
+	taxService := services.NewTaxService(db)
+	taxHandler := handlers.NewTaxHandlers(taxService)
+	groupTax := e.Group("/tax")
+	groupTax.POST("/calculations", taxHandler.TaxCalculateHandler)
 
 	// make graceful shutdown
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

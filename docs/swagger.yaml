@@ -1,4 +1,77 @@
+definitions:
+  Allowance:
+    properties:
+      allowanceType:
+        enum:
+        - donation
+        - k-receipt
+        type: string
+      amount:
+        minimum: 0
+        type: number
+    required:
+    - allowanceType
+    type: object
+  ErrorResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  TaxRequest:
+    properties:
+      allowances:
+        items:
+          $ref: '#/definitions/Allowance'
+        type: array
+      totalIncome:
+        example: 500000
+        minimum: 0
+        type: number
+      wht:
+        minimum: 0
+        type: number
+    type: object
+  TaxResponse:
+    properties:
+      tax:
+        type: number
+    type: object
+host: localhost:8080
 info:
   contact: {}
-paths: {}
+  description: K-Tax Calculate API
+  title: K-Tax API
+  version: "1.0"
+paths:
+  /tax/calculations:
+    post:
+      consumes:
+      - application/json
+      description: To calculate personal tax and return how much addition pay tax
+        / refund tax
+      parameters:
+      - description: tax data that want to calculate
+        in: body
+        name: tax
+        required: true
+        schema:
+          $ref: '#/definitions/TaxRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TaxResponse'
+        "400":
+          description: validate error or cannot get body
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Tax Calculate API
+      tags:
+      - tax
 swagger: "2.0"
