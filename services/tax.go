@@ -4,6 +4,8 @@ import (
 	"database/sql"
 
 	"github.com/baronight/assessment-tax/models"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 type TaxService struct {
@@ -15,8 +17,8 @@ type TaxStorer interface {
 }
 
 var (
-	DefaultPersonalDeduction float32 = 60000
-	DefaultDonationDeduction float32 = 0
+	DefaultPersonalDeduction float32 = 60_000
+	DefaultDonationDeduction float32 = 100_000
 )
 
 var TaxStep []models.TaxStep = []models.TaxStep{
@@ -80,35 +82,41 @@ func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, e
 		return models.TaxResponse{}, err
 	}
 
-	netIncome := tax.TotalIncome - personal.Amount
+	netIncome := tax.TotalIncome - personal.Amount - CalculateDonation(tax.Allowances, donation)
 	var result models.TaxResponse
+	result.TaxLevel = []models.TaxLevel{}
 	for _, v := range TaxStep {
+		var taxStep float32
+		p := message.NewPrinter(language.English)
+		level := p.Sprintf("%.0f-%.0f", v.MinIncome+1, v.MaxIncome)
 		overflowStep := netIncome - v.MaxIncome
-		if v.MaxIncome == 0 {
+		if v.MaxIncome <= 0 {
 			// that mean unlimit ceiling income
 			overflowStep = 0
+			level = p.Sprintf("%.0f ขึ้นไป", v.MinIncome+1)
 		}
 		if overflowStep > 0 {
 			// calculate full tax rate on this step
-			result.Tax += (v.MaxIncome - v.MinIncome) * v.Rate
+			taxStep = (v.MaxIncome - v.MinIncome) * v.Rate
 		} else {
 			// calculate remain tax
 			remain := netIncome - v.MinIncome
 			if remain < 0 {
 				remain = 0
 			}
-			result.Tax += remain * v.Rate
+			taxStep = remain * v.Rate
 		}
+
+		result.Tax += taxStep
+		result.TaxLevel = append(result.TaxLevel, models.TaxLevel{Level: level, Tax: taxStep})
 	}
 
-	deduction := tax.Wht + CalculateDonation(tax.Allowances, donation)
-
-	if deduction > result.Tax {
+	if tax.Wht > result.Tax {
 		// over payment tax should refund
-		result.TaxRefund = deduction - result.Tax
+		result.TaxRefund = tax.Wht - result.Tax
 		result.Tax = 0
 	} else {
-		result.Tax = result.Tax - deduction
+		result.Tax = result.Tax - tax.Wht
 	}
 
 	return result, nil

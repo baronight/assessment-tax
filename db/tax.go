@@ -4,7 +4,7 @@ import "github.com/baronight/assessment-tax/models"
 
 // getDeductions implements services.TaxStorer.
 func (p *Postgres) GetDeductions() ([]models.Deduction, error) {
-	rows, err := p.Db.Query("SELECT id, slug, name, amount, minAmount, maxAmount FROM deductions")
+	rows, err := p.Db.Query("SELECT id, slug, \"name\", amount, \"minAmount\", \"maxAmount\" FROM deductions")
 	if err != nil {
 		return nil, err
 	}
