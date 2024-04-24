@@ -3,6 +3,7 @@ module github.com/baronight/assessment-tax
 go 1.21.9
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/lib/pq v1.10.9
 	github.com/swaggo/echo-swagger v1.4.1

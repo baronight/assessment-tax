@@ -21,3 +21,17 @@ type TaxStep struct {
 	MaxIncome float32
 	Rate      float32
 }
+
+type Deduction struct {
+	Id        uint    `postgres:"id" json:"-"`
+	Slug      string  `postgres:"slug" json:"slug"`
+	Name      string  `postgres:"name" json:"name"`
+	Amount    float32 `postgres:"amount" json:"amount"`
+	MinAmount float32 `postgres:"minAmount" json:"-"`
+	MaxAmount float32 `postgres:"maxAmount" json:"-"`
+}
+
+const (
+	DonationSlug = "donation"
+	PersonalSlug = "personal"
+)
