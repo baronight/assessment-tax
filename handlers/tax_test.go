@@ -123,7 +123,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 		})
 	})
 
-	t.Run("given valid total income should return status 200 with tax value", func(t *testing.T) {
+	t.Run("given valid total income should return status 200 with tax response", func(t *testing.T) {
 		body, _ := json.Marshal(models.TaxRequest{
 			TotalIncome: 500000.0,
 			Wht:         0.0,

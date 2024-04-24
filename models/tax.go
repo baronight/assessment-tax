@@ -12,15 +12,21 @@ type Allowance struct {
 } //@Name Allowance
 
 type TaxResponse struct {
-	Tax       float32 `json:"tax"`
-	TaxRefund float32 `json:"taxRefund,omitempty"`
+	Tax       float32    `json:"tax"`
+	TaxRefund float32    `json:"taxRefund,omitempty"`
+	TaxLevel  []TaxLevel `json:"taxLevel"`
 } //@Name TaxResponse
 
 type TaxStep struct {
 	MinIncome float32
 	MaxIncome float32
 	Rate      float32
-}
+} //@Name TaxStep
+
+type TaxLevel struct {
+	Level string  `json:"level"`
+	Tax   float32 `json:"tax"`
+} //@Name TaxLevel
 
 type Deduction struct {
 	Id        uint    `postgres:"id" json:"-"`
@@ -29,7 +35,7 @@ type Deduction struct {
 	Amount    float32 `postgres:"amount" json:"amount"`
 	MinAmount float32 `postgres:"minAmount" json:"-"`
 	MaxAmount float32 `postgres:"maxAmount" json:"-"`
-}
+} //@Name Deduction
 
 const (
 	DonationSlug = "donation"

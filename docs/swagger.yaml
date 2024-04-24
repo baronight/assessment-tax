@@ -17,6 +17,13 @@ definitions:
       message:
         type: string
     type: object
+  TaxLevel:
+    properties:
+      level:
+        type: string
+      tax:
+        type: number
+    type: object
   TaxRequest:
     properties:
       allowances:
@@ -34,6 +41,12 @@ definitions:
   TaxResponse:
     properties:
       tax:
+        type: number
+      taxLevel:
+        items:
+          $ref: '#/definitions/TaxLevel'
+        type: array
+      taxRefund:
         type: number
     type: object
 host: localhost:8080

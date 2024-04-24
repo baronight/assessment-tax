@@ -23,7 +23,7 @@ func TestGetDeductions(t *testing.T) {
 		db, mock := NewMock()
 		p = Postgres{Db: db}
 
-		qry = "SELECT id, slug, name, amount, minAmount, maxAmount FROM deductions"
+		qry = "SELECT id, slug, \"name\", amount, \"minAmount\", \"maxAmount\" FROM deductions"
 
 		rows = sqlmock.
 			NewRows([]string{"id", "slug", "name", "amount", "minAmount", "maxAmount"})

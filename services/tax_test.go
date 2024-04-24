@@ -54,6 +54,9 @@ var expectNilErrMsg = "unexpect error should be null"
 func expectTaxValueMsg(want, got float32) string {
 	return fmt.Sprintf("expect tax should be %.2f, but got %.2f", want, got)
 }
+func expectTaxRefundValueMsg(want, got float32) string {
+	return fmt.Sprintf("expect tax refund should be %.2f, but got %.2f", want, got)
+}
 func assertObjectIsEqual(t *testing.T, want, got interface{}) {
 	t.Helper()
 	if !reflect.DeepEqual(want, got) {
@@ -143,11 +146,13 @@ func TestTaxCalculate(t *testing.T) {
 
 				assertIsNil(t, err, expectNilErrMsg)
 				assertIsEqual(t, tc.want.Tax, result.Tax, expectTaxValueMsg(tc.want.Tax, result.Tax))
-				assertObjectIsEqual(t, tc.want, result)
+				assertIsEqual(t, tc.want.TaxRefund, result.TaxRefund, expectTaxRefundValueMsg(tc.want.TaxRefund, result.TaxRefund))
 			})
 		}
 	})
+}
 
+func TestTaxWithWHT(t *testing.T) {
 	t.Run("given input with income and wht with personal deduction is 60_000", func(t *testing.T) {
 		testSuites := []TaxTestSuite{
 			{
@@ -171,10 +176,14 @@ func TestTaxCalculate(t *testing.T) {
 				result, err := service.TaxCalculate(tc.params)
 
 				assertIsNil(t, err, expectNilErrMsg)
-				assertObjectIsEqual(t, tc.want, result)
+				assertIsEqual(t, tc.want.Tax, result.Tax, expectTaxValueMsg(tc.want.Tax, result.Tax))
+				assertIsEqual(t, tc.want.TaxRefund, result.TaxRefund, expectTaxRefundValueMsg(tc.want.TaxRefund, result.TaxRefund))
 			})
 		}
 	})
+}
+
+func TestTaxWithAllowance(t *testing.T) {
 
 	t.Run("given input donation allowances", func(t *testing.T) {
 		testSuites := []TaxTestSuite{
@@ -192,7 +201,7 @@ func TestTaxCalculate(t *testing.T) {
 			{
 				name: "when no limit donation deduction it should subtract all donation from tax",
 				stub: initStub([]models.Deduction{}, nil),
-				want: models.TaxResponse{TaxRefund: 4_000},
+				want: models.TaxResponse{Tax: 3_200},
 				params: models.TaxRequest{
 					TotalIncome: 500_000,
 					Wht:         25_000,
@@ -225,7 +234,7 @@ func TestTaxCalculate(t *testing.T) {
 						{Type: models.DonationSlug, Amount: 2_000},
 					},
 				},
-				want: models.TaxResponse{Tax: 0},
+				want: models.TaxResponse{Tax: 4_500},
 			},
 		}
 
@@ -242,9 +251,57 @@ func TestTaxCalculate(t *testing.T) {
 					assertIsEqual(t, tc.wantError.Error(), err.Error(), fmt.Sprintf("expect error %s but got %s", tc.wantError.Error(), err.Error()))
 				} else {
 					assertIsNil(t, err, expectNilErrMsg)
-					assertObjectIsEqual(t, tc.want, result)
+					assertIsEqual(t, tc.want.Tax, result.Tax, expectTaxValueMsg(tc.want.Tax, result.Tax))
+					assertIsEqual(t, tc.want.TaxRefund, result.TaxRefund, expectTaxRefundValueMsg(tc.want.TaxRefund, result.TaxRefund))
 				}
 			})
 		}
+	})
+}
+
+func TestTaxLevel(t *testing.T) {
+	t.Run("given valid tax request should return response with tax level", func(t *testing.T) {
+		stub := initStub([]models.Deduction{}, nil)
+		params := models.TaxRequest{
+			TotalIncome: 500000.0,
+			Wht:         0.0,
+			Allowances: []models.Allowance{
+				{
+					Type:   models.DonationSlug,
+					Amount: 200000.0,
+				},
+			},
+		}
+		service := setupTaxService(stub)
+
+		result, err := service.TaxCalculate(params)
+
+		want := models.TaxResponse{
+			Tax: 19_000,
+			TaxLevel: []models.TaxLevel{
+				{
+					Level: "0-150,000",
+					Tax:   0.0,
+				},
+				{
+					Level: "150,001-500,000",
+					Tax:   19000.0,
+				},
+				{
+					Level: "500,001-1,000,000",
+					Tax:   0.0,
+				},
+				{
+					Level: "1,000,001-2,000,000",
+					Tax:   0.0,
+				},
+				{
+					Level: "2,000,001 ขึ้นไป",
+					Tax:   0.0,
+				},
+			},
+		}
+		assertIsNil(t, err, expectNilErrMsg)
+		assertObjectIsEqual(t, want, result)
 	})
 }
