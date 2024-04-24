@@ -129,7 +129,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 			Wht:         0.0,
 			Allowances: []models.Allowance{
 				{
-					Type:   "donation",
+					Type:   models.DonationSlug,
 					Amount: 0.0,
 				},
 			},
@@ -156,7 +156,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 			Wht:         0.0,
 			Allowances: []models.Allowance{
 				{
-					Type:   "donation",
+					Type:   models.DonationSlug,
 					Amount: 0.0,
 				},
 			},

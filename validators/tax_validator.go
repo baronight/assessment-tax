@@ -8,11 +8,6 @@ import (
 
 type AllowanceType string
 
-const (
-	Donation AllowanceType = "donation"
-	KReceipt AllowanceType = "k-receipt"
-)
-
 var (
 	ErrTotalIncomeInvalid     = errors.New("total income should be more than or equal 0")
 	ErrWhtInvalid             = errors.New("wht should be more than or equal 0")
@@ -29,11 +24,8 @@ func ValidateTaxRequest(tax models.TaxRequest) error {
 		return err
 	}
 	for _, v := range tax.Allowances {
-		if v.Type != string(Donation) && v.Type != string(KReceipt) {
-			return ErrAllowanceTypeInvalid
-		}
-		if v.Amount < 0 {
-			return ErrAllowanceAmountInvalid
+		if err := ValidateAllowance(v); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -52,6 +44,16 @@ func ValidateWht(wht, totalIncome float32) error {
 	}
 	if wht > totalIncome {
 		return ErrWhtMoreThanIncome
+	}
+	return nil
+}
+
+func ValidateAllowance(allowance models.Allowance) error {
+	if allowance.Type != models.DonationSlug {
+		return ErrAllowanceTypeInvalid
+	}
+	if allowance.Amount < 0 {
+		return ErrAllowanceAmountInvalid
 	}
 	return nil
 }

@@ -1,6 +1,8 @@
 package services
 
 import (
+	"database/sql"
+
 	"github.com/baronight/assessment-tax/models"
 )
 
@@ -9,10 +11,12 @@ type TaxService struct {
 }
 
 type TaxStorer interface {
+	GetDeductions() ([]models.Deduction, error)
 }
 
-const (
-	personal = 60000
+var (
+	DefaultPersonalDeduction float32 = 60000
+	DefaultDonationDeduction float32 = 0
 )
 
 var TaxStep []models.TaxStep = []models.TaxStep{
@@ -29,8 +33,54 @@ func NewTaxService(db TaxStorer) *TaxService {
 	}
 }
 
+func (ts *TaxService) GetDeductionConfig() (personal, donation models.Deduction, err error) {
+	var deductions map[string]models.Deduction = map[string]models.Deduction{}
+	ds, err := ts.Db.GetDeductions()
+	if err != nil && err != sql.ErrNoRows {
+		return personal, donation, err
+	}
+
+	for _, v := range ds {
+		deductions[v.Slug] = v
+		switch v.Slug {
+		case models.DonationSlug:
+			donation = v
+		case models.PersonalSlug:
+			personal = v
+		}
+	}
+
+	if personal.Amount == 0 {
+		personal.Amount = DefaultPersonalDeduction
+	}
+
+	if donation.Amount == 0 {
+		donation.Amount = DefaultDonationDeduction
+	}
+
+	return personal, donation, nil
+}
+
+func CalculateDonation(allowances []models.Allowance, donation models.Deduction) (amount float32) {
+	for _, allowance := range allowances {
+		if allowance.Type == models.DonationSlug {
+			amount += allowance.Amount
+		}
+	}
+
+	if donation.Amount != 0 && amount > donation.Amount {
+		amount = donation.Amount
+	}
+	return
+}
+
 func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, error) {
-	netIncome := tax.TotalIncome - personal
+	personal, donation, err := ts.GetDeductionConfig()
+	if err != nil {
+		return models.TaxResponse{}, err
+	}
+
+	netIncome := tax.TotalIncome - personal.Amount
 	var result models.TaxResponse
 	for _, v := range TaxStep {
 		overflowStep := netIncome - v.MaxIncome
@@ -51,12 +101,15 @@ func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, e
 		}
 	}
 
-	if tax.Wht > result.Tax {
+	deduction := tax.Wht + CalculateDonation(tax.Allowances, donation)
+
+	if deduction > result.Tax {
 		// over payment tax should refund
-		result.TaxRefund = tax.Wht - result.Tax
+		result.TaxRefund = deduction - result.Tax
 		result.Tax = 0
 	} else {
-		result.Tax = result.Tax - tax.Wht
+		result.Tax = result.Tax - deduction
 	}
+
 	return result, nil
 }
