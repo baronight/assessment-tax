@@ -12,10 +12,20 @@ definitions:
     required:
     - allowanceType
     type: object
+  DeductionRequest:
+    properties:
+      amount:
+        type: number
+    type: object
   ErrorResponse:
     properties:
       message:
         type: string
+    type: object
+  PersonalResponse:
+    properties:
+      personalDeduction:
+        type: number
     type: object
   TaxLevel:
     properties:
@@ -56,6 +66,41 @@ info:
   title: K-Tax API
   version: "1.0"
 paths:
+  /admin/deductions/personal:
+    post:
+      consumes:
+      - application/json
+      description: To setting personal deduction amount for use in tax calculate
+      parameters:
+      - description: new amount that you want to set
+        in: body
+        name: tax
+        required: true
+        schema:
+          $ref: '#/definitions/DeductionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PersonalResponse'
+        "400":
+          description: validate error or cannot get body
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: data not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Personal Deduction Config API
+      tags:
+      - admin
+      - deduction
   /tax/calculations:
     post:
       consumes:

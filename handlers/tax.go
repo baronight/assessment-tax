@@ -1,16 +1,12 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/baronight/assessment-tax/models"
+	"github.com/baronight/assessment-tax/utils"
 	"github.com/baronight/assessment-tax/validators"
 	"github.com/labstack/echo/v4"
-)
-
-var (
-	ErrInternalServer = errors.New("internal server error")
 )
 
 type TaxHandlers struct {
@@ -52,7 +48,7 @@ func (h *TaxHandlers) TaxCalculateHandler(c echo.Context) error {
 
 	if err != nil {
 		c.Logger().Error(err)
-		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Message: ErrInternalServer.Error()})
+		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Message: utils.ErrInternalServer.Error()})
 	}
 
 	return c.JSON(http.StatusOK, result)

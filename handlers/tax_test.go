@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/baronight/assessment-tax/models"
+	"github.com/baronight/assessment-tax/utils"
 	"github.com/baronight/assessment-tax/validators"
 	"github.com/labstack/echo/v4"
 )
@@ -72,7 +73,7 @@ func decodeErrorResponse(t *testing.T, res *httptest.ResponseRecorder) (got mode
 	return
 }
 
-func setup(method, url string, body io.Reader) (res *httptest.ResponseRecorder, c echo.Context, h *TaxHandlers, stub *stubTaxCalculate) {
+func setupTaxHandler(method, url string, body io.Reader) (res *httptest.ResponseRecorder, c echo.Context, h *TaxHandlers, stub *stubTaxCalculate) {
 	e := echo.New()
 	// e.Validator = &models.CustomValidator{Validator: validator.New()}
 	req := httptest.NewRequest(method, url, body)
@@ -90,7 +91,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 	t.Run("given not valid request body should return status 400 with validate message", func(t *testing.T) {
 		t.Run("when total income is not valid should get error message ErrTotalIncomeInvalid", func(t *testing.T) {
 			body, _ := json.Marshal(models.TaxRequest{TotalIncome: -1})
-			res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
+			res, c, h, stub := setupTaxHandler(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
 
 			h.TaxCalculateHandler(c)
 
@@ -101,7 +102,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 		})
 		t.Run("when wht is not valid should get error message ErrWhtInvalid", func(t *testing.T) {
 			body, _ := json.Marshal(models.TaxRequest{Wht: -1})
-			res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
+			res, c, h, stub := setupTaxHandler(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
 
 			h.TaxCalculateHandler(c)
 
@@ -112,7 +113,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 		})
 		t.Run("when wht is more than income should get error message ErrWhtMoreThanIncome", func(t *testing.T) {
 			body, _ := json.Marshal(models.TaxRequest{TotalIncome: 200_000, Wht: 300_000})
-			res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
+			res, c, h, stub := setupTaxHandler(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
 
 			h.TaxCalculateHandler(c)
 
@@ -134,7 +135,7 @@ func TestTaxCalculateHandler(t *testing.T) {
 				},
 			},
 		})
-		res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
+		res, c, h, stub := setupTaxHandler(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
 		stub.response = models.TaxResponse{
 			Tax: 29000.0,
 		}
@@ -161,8 +162,8 @@ func TestTaxCalculateHandler(t *testing.T) {
 				},
 			},
 		})
-		res, c, h, stub := setup(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
-		stub.err = ErrInternalServer
+		res, c, h, stub := setupTaxHandler(http.MethodPost, "/tax/calculations", strings.NewReader(string(body)))
+		stub.err = utils.ErrInternalServer
 
 		h.TaxCalculateHandler(c)
 
@@ -170,6 +171,6 @@ func TestTaxCalculateHandler(t *testing.T) {
 		stub.assertMethodCalledTime(t, "TaxCalculate", 1)
 		assertHttpCode(t, http.StatusInternalServerError, res.Code)
 		got := decodeErrorResponse(t, res)
-		assertErrorMessage(t, ErrInternalServer.Error(), got.Message)
+		assertErrorMessage(t, utils.ErrInternalServer.Error(), got.Message)
 	})
 }
