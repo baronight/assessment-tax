@@ -15,6 +15,59 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/deductions/personal": {
+            "post": {
+                "description": "To setting personal deduction amount for use in tax calculate",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "deduction"
+                ],
+                "summary": "Personal Deduction Config API",
+                "parameters": [
+                    {
+                        "description": "new amount that you want to set",
+                        "name": "tax",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/DeductionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PersonalResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "validate error or cannot get body",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "data not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tax/calculations": {
             "post": {
                 "description": "To calculate personal tax and return how much addition pay tax / refund tax",
@@ -82,11 +135,27 @@ const docTemplate = `{
                 }
             }
         },
+        "DeductionRequest": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                }
+            }
+        },
         "ErrorResponse": {
             "type": "object",
             "properties": {
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "PersonalResponse": {
+            "type": "object",
+            "properties": {
+                "personalDeduction": {
+                    "type": "number"
                 }
             }
         },

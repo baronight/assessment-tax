@@ -14,6 +14,7 @@ import (
 	"github.com/baronight/assessment-tax/db"
 	_ "github.com/baronight/assessment-tax/docs"
 	"github.com/baronight/assessment-tax/handlers"
+	"github.com/baronight/assessment-tax/middlewares"
 	"github.com/baronight/assessment-tax/services"
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
@@ -35,7 +36,7 @@ func main() {
 	e := echo.New()
 	// e.Validator = &models.CustomValidator{Validator: validator.New()}
 
-	e.Use(middleware.Logger(), middleware.Recover())
+	e.Use(middleware.Logger(), middleware.Recover(), middleware.CORS())
 	// setup swagger document
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
@@ -47,6 +48,12 @@ func main() {
 	taxHandler := handlers.NewTaxHandlers(taxService)
 	groupTax := e.Group("/tax")
 	groupTax.POST("/calculations", taxHandler.TaxCalculateHandler)
+
+	adminService := services.NewAdminService(db)
+	adminHandler := handlers.NewAdminHandlers(adminService)
+	groupAdmin := e.Group("/admin")
+	groupAdmin.Use(middlewares.BasicAuthMiddleware())
+	groupAdmin.POST("/deductions/personal", adminHandler.PersonalDeductionConfigHandler)
 
 	// make graceful shutdown
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

@@ -12,23 +12,36 @@ import (
 
 type TaxTestSuite struct {
 	name      string
-	stub      StubStore
+	stub      StubTaxStore
 	want      models.TaxResponse
 	params    models.TaxRequest
 	wantError error
 }
 
-type StubStore struct {
+type StubTaxStore struct {
 	deductions      []models.Deduction
 	err             error
 	expectToCall    map[string]bool
 	expectCallTimes map[string]int
 }
 
-func (s *StubStore) GetDeductions() ([]models.Deduction, error) {
+func (s *StubTaxStore) GetDeductions() ([]models.Deduction, error) {
 	s.expectToCall["GetDeductions"] = true
 	s.expectCallTimes["GetDeductions"]++
 	return s.deductions, s.err
+}
+
+func (s *StubTaxStore) assertMethodWasCalled(t *testing.T, methodName string) {
+	t.Helper()
+	if !s.expectToCall[methodName] {
+		t.Errorf("expect %s was called", methodName)
+	}
+}
+func (s *StubTaxStore) assertMethodCalledTime(t *testing.T, methodName string, times int) {
+	t.Helper()
+	if s.expectCallTimes[methodName] != times {
+		t.Errorf("expect %s was called %d times but got %d", methodName, times, s.expectCallTimes[methodName])
+	}
 }
 
 func assertIsNil(t *testing.T, obj interface{}, message string) {
@@ -43,7 +56,7 @@ func assertIsEqual(t *testing.T, want, got interface{}, message string) {
 		t.Error(message)
 	}
 }
-func setupTaxService(stub StubStore) *TaxService {
+func setupTaxService(stub StubTaxStore) *TaxService {
 	service := NewTaxService(&stub)
 
 	return service
@@ -64,8 +77,8 @@ func assertObjectIsEqual(t *testing.T, want, got interface{}) {
 	}
 }
 
-func initStub(deductions []models.Deduction, err error) StubStore {
-	return StubStore{
+func initStub(deductions []models.Deduction, err error) StubTaxStore {
+	return StubTaxStore{
 		expectToCall:    map[string]bool{},
 		expectCallTimes: map[string]int{},
 		deductions:      deductions,
@@ -144,6 +157,8 @@ func TestTaxCalculate(t *testing.T) {
 
 				result, err := service.TaxCalculate(tc.params)
 
+				tc.stub.assertMethodWasCalled(t, "GetDeductions")
+				tc.stub.assertMethodCalledTime(t, "GetDeductions", 1)
 				assertIsNil(t, err, expectNilErrMsg)
 				assertIsEqual(t, tc.want.Tax, result.Tax, expectTaxValueMsg(tc.want.Tax, result.Tax))
 				assertIsEqual(t, tc.want.TaxRefund, result.TaxRefund, expectTaxRefundValueMsg(tc.want.TaxRefund, result.TaxRefund))
@@ -175,6 +190,8 @@ func TestTaxWithWHT(t *testing.T) {
 
 				result, err := service.TaxCalculate(tc.params)
 
+				tc.stub.assertMethodWasCalled(t, "GetDeductions")
+				tc.stub.assertMethodCalledTime(t, "GetDeductions", 1)
 				assertIsNil(t, err, expectNilErrMsg)
 				assertIsEqual(t, tc.want.Tax, result.Tax, expectTaxValueMsg(tc.want.Tax, result.Tax))
 				assertIsEqual(t, tc.want.TaxRefund, result.TaxRefund, expectTaxRefundValueMsg(tc.want.TaxRefund, result.TaxRefund))
@@ -244,6 +261,8 @@ func TestTaxWithAllowance(t *testing.T) {
 
 				result, err := service.TaxCalculate(tc.params)
 
+				tc.stub.assertMethodWasCalled(t, "GetDeductions")
+				tc.stub.assertMethodCalledTime(t, "GetDeductions", 1)
 				if tc.wantError != nil {
 					if err == nil {
 						t.Fatalf("expect error should not null")
@@ -276,6 +295,8 @@ func TestTaxLevel(t *testing.T) {
 
 		result, err := service.TaxCalculate(params)
 
+		stub.assertMethodWasCalled(t, "GetDeductions")
+		stub.assertMethodCalledTime(t, "GetDeductions", 1)
 		want := models.TaxResponse{
 			Tax: 19_000,
 			TaxLevel: []models.TaxLevel{
