@@ -34,7 +34,7 @@ type StubAdminServicer struct {
 	errValidate     error
 }
 
-func (s *StubAdminServicer) ValidateDeductionRequest(slug string, amount float32) error {
+func (s *StubAdminServicer) ValidateDeductionRequest(slug string, amount float64) error {
 	s.expectToCall["ValidateDeductionRequest"] = true
 	s.expectCallTimes["ValidateDeductionRequest"]++
 	return s.errValidate

@@ -14,7 +14,7 @@ type AdminHandlers struct {
 }
 
 type AdminServicer interface {
-	ValidateDeductionRequest(slug string, amount float32) error
+	ValidateDeductionRequest(slug string, amount float64) error
 	UpdateDeductionConfig(deduction models.DeductionRequest) (models.Deduction, error)
 }
 

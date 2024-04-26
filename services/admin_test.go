@@ -37,7 +37,7 @@ func (s *StubAdminStorer) GetDeduction(slug string) (models.Deduction, error) {
 	return s.getDeduction, s.getDeductionErr
 }
 
-func (s *StubAdminStorer) UpdateDeduction(slug string, amount float32) (models.Deduction, error) {
+func (s *StubAdminStorer) UpdateDeduction(slug string, amount float64) (models.Deduction, error) {
 	s.expectToCall["UpdateDeduction"] = true
 	s.expectCallTimes["UpdateDeduction"]++
 	return s.updateDeduction, s.updateDeductionErr
