@@ -66,7 +66,7 @@ func ValidateWht(wht, totalIncome float64) error {
 }
 
 func ValidateAllowance(allowance models.Allowance) error {
-	if allowance.Type != models.DonationSlug {
+	if allowance.Type != models.DonationSlug && allowance.Type != models.KReceiptSlug {
 		return ErrAllowanceTypeInvalid
 	}
 	if allowance.Amount < 0 {
