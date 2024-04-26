@@ -55,6 +55,7 @@ func main() {
 	groupAdmin := e.Group("/admin")
 	groupAdmin.Use(middlewares.BasicAuthMiddleware())
 	groupAdmin.POST("/deductions/personal", adminHandler.PersonalDeductionConfigHandler)
+	groupAdmin.POST("/deductions/k-receipt", adminHandler.KReceiptDeductionConfigHandler)
 
 	// make graceful shutdown
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

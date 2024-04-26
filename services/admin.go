@@ -27,13 +27,13 @@ func NewAdminService(db AdminStorer) *AdminService {
 	}
 }
 
-func (as *AdminService) UpdateDeductionConfig(amount models.DeductionRequest) (response models.Deduction, err error) {
-	err = as.ValidateDeductionRequest(models.PersonalSlug, amount.Amount)
+func (as *AdminService) UpdateDeductionConfig(slug string, amount models.DeductionRequest) (response models.Deduction, err error) {
+	err = as.ValidateDeductionRequest(slug, amount.Amount)
 	if err != nil {
 		return
 	}
 
-	response, err = as.Db.UpdateDeduction(models.PersonalSlug, amount.Amount)
+	response, err = as.Db.UpdateDeduction(slug, amount.Amount)
 	return
 }
 
