@@ -204,7 +204,6 @@ func TestTaxWithWHT(t *testing.T) {
 }
 
 func TestTaxWithAllowance(t *testing.T) {
-
 	t.Run("given input donation allowances", func(t *testing.T) {
 		testSuites := []TaxTestSuite{
 			{
@@ -279,6 +278,192 @@ func TestTaxWithAllowance(t *testing.T) {
 			})
 		}
 	})
+	t.Run("given input k-receipt allowances", func(t *testing.T) {
+		testSuites := []TaxTestSuite{
+			{
+				name:      "when error on get deduction config it should return error",
+				wantError: errors.New("error xxx happend"),
+				stub:      initStub([]models.Deduction{}, errors.New("error xxx happend")),
+			},
+			{
+				name:   "when error on get deduction is 'ErrNoRows' it should return tax",
+				want:   models.TaxResponse{Tax: 29_000},
+				params: models.TaxRequest{TotalIncome: 500_000, Allowances: []models.Allowance{}},
+				stub:   initStub([]models.Deduction{}, sql.ErrNoRows),
+			},
+			{
+				name: "when no limit k-receipt deduction it should subtract all k-receipt from tax",
+				stub: initStub([]models.Deduction{}, nil),
+				want: models.TaxResponse{Tax: 3_200},
+				params: models.TaxRequest{
+					TotalIncome: 500_000,
+					Wht:         25_000,
+					Allowances: []models.Allowance{
+						{
+							Type:   models.KReceiptSlug,
+							Amount: 5_000,
+						},
+						{
+							Type:   models.KReceiptSlug,
+							Amount: 3_000,
+						},
+					},
+				},
+			},
+			{
+				name: "when k-receipt deduction has limit it should subtract with no over limit from tax",
+				stub: initStub(
+					[]models.Deduction{
+						{Slug: models.DonationSlug, Amount: 5_000, Name: "Donation"},
+						{Slug: models.PersonalSlug, Amount: 50_000, Name: "PersonalDeduction"},
+						{Slug: models.KReceiptSlug, Amount: 5_000, Name: "kReceipt"},
+					},
+					nil,
+				),
+				params: models.TaxRequest{
+					TotalIncome: 500_000,
+					Wht:         25_000,
+					Allowances: []models.Allowance{
+						{Type: models.KReceiptSlug, Amount: 4_000},
+						{Type: models.KReceiptSlug, Amount: 2_000},
+					},
+				},
+				want: models.TaxResponse{Tax: 4_500},
+			},
+		}
+
+		for _, tc := range testSuites {
+			t.Run(tc.name, func(t *testing.T) {
+				service := setupTaxService(tc.stub)
+
+				result, err := service.TaxCalculate(tc.params)
+
+				tc.stub.assertMethodWasCalled(t, "GetDeductions")
+				tc.stub.assertMethodCalledTime(t, "GetDeductions", 1)
+				if tc.wantError != nil {
+					if err == nil {
+						t.Fatalf("expect error should not null")
+					}
+					assertIsEqual(t, tc.wantError.Error(), err.Error(), fmt.Sprintf("expect error %s but got %s", tc.wantError.Error(), err.Error()))
+				} else {
+					assertIsNil(t, err, expectNilErrMsg)
+					assertIsEqual(t, tc.want.Tax, result.Tax, expectTaxValueMsg(tc.want.Tax, result.Tax))
+					assertIsEqual(t, tc.want.TaxRefund, result.TaxRefund, expectTaxRefundValueMsg(tc.want.TaxRefund, result.TaxRefund))
+				}
+			})
+		}
+	})
+	t.Run("given input all donation and k-receipt allowances", func(t *testing.T) {
+		testSuites := []TaxTestSuite{
+			{
+				name:      "when error on get deduction config it should return error",
+				wantError: errors.New("error xxx happend"),
+				stub:      initStub([]models.Deduction{}, errors.New("error xxx happend")),
+			},
+			{
+				name:   "when error on get deduction is 'ErrNoRows' it should return tax",
+				want:   models.TaxResponse{Tax: 29_000},
+				params: models.TaxRequest{TotalIncome: 500_000, Allowances: []models.Allowance{}},
+				stub:   initStub([]models.Deduction{}, sql.ErrNoRows),
+			},
+			{
+				name: "when no limit donation it should subtract all donation from tax",
+				stub: initStub(
+					[]models.Deduction{
+						{Slug: models.DonationSlug, Amount: 0, Name: "Donation"},
+						{Slug: models.PersonalSlug, Amount: 50_000, Name: "PersonalDeduction"},
+						{Slug: models.KReceiptSlug, Amount: 5_000, Name: "kReceipt"},
+					},
+					nil,
+				),
+				want: models.TaxResponse{TaxRefund: 10_500},
+				params: models.TaxRequest{
+					TotalIncome: 500_000,
+					Wht:         25_000,
+					Allowances: []models.Allowance{
+						{
+							Type:   models.DonationSlug,
+							Amount: 150_000,
+						},
+						{
+							Type:   models.KReceiptSlug,
+							Amount: 150_000,
+						},
+					},
+				},
+			},
+			{
+				name: "when no limit k-receipt deduction it should subtract all k-receipt from tax",
+				stub: initStub(
+					[]models.Deduction{
+						{Slug: models.DonationSlug, Amount: 5_000, Name: "Donation"},
+						{Slug: models.PersonalSlug, Amount: 50_000, Name: "PersonalDeduction"},
+						{Slug: models.KReceiptSlug, Amount: 0, Name: "kReceipt"},
+					},
+					nil,
+				),
+				want: models.TaxResponse{TaxRefund: 10_500},
+				params: models.TaxRequest{
+					TotalIncome: 500_000,
+					Wht:         25_000,
+					Allowances: []models.Allowance{
+						{
+							Type:   models.DonationSlug,
+							Amount: 150_000,
+						},
+						{
+							Type:   models.KReceiptSlug,
+							Amount: 150_000,
+						},
+					},
+				},
+			},
+			{
+				name: "when donation and k-receipt deduction has limit it should subtract with no over limit from tax",
+				stub: initStub(
+					[]models.Deduction{
+						{Slug: models.DonationSlug, Amount: 3_000, Name: "Donation"},
+						{Slug: models.PersonalSlug, Amount: 50_000, Name: "PersonalDeduction"},
+						{Slug: models.KReceiptSlug, Amount: 2_000, Name: "kReceipt"},
+					},
+					nil,
+				),
+				params: models.TaxRequest{
+					TotalIncome: 500_000,
+					Wht:         25_000,
+					Allowances: []models.Allowance{
+						{Type: models.DonationSlug, Amount: 4_000},
+						{Type: models.KReceiptSlug, Amount: 2_000},
+						{Type: models.KReceiptSlug, Amount: 1_000},
+						{Type: models.DonationSlug, Amount: 2_000},
+					},
+				},
+				want: models.TaxResponse{Tax: 4_500},
+			},
+		}
+
+		for _, tc := range testSuites {
+			t.Run(tc.name, func(t *testing.T) {
+				service := setupTaxService(tc.stub)
+
+				result, err := service.TaxCalculate(tc.params)
+
+				tc.stub.assertMethodWasCalled(t, "GetDeductions")
+				tc.stub.assertMethodCalledTime(t, "GetDeductions", 1)
+				if tc.wantError != nil {
+					if err == nil {
+						t.Fatalf("expect error should not null")
+					}
+					assertIsEqual(t, tc.wantError.Error(), err.Error(), fmt.Sprintf("expect error %s but got %s", tc.wantError.Error(), err.Error()))
+				} else {
+					assertIsNil(t, err, expectNilErrMsg)
+					assertIsEqual(t, tc.want.Tax, result.Tax, expectTaxValueMsg(tc.want.Tax, result.Tax))
+					assertIsEqual(t, tc.want.TaxRefund, result.TaxRefund, expectTaxRefundValueMsg(tc.want.TaxRefund, result.TaxRefund))
+				}
+			})
+		}
+	})
+
 }
 
 func TestTaxLevel(t *testing.T) {
@@ -545,6 +730,28 @@ func TestTransformCsvToRequest(t *testing.T) {
 }
 
 func TestFuncCalculateTaxCsv(t *testing.T) {
+	t.Run("given error on get deduction config should return error", func(t *testing.T) {
+		stub := StubTaxStore{
+			err:             errors.New("error 'xxx' occured"),
+			expectToCall:    map[string]bool{},
+			expectCallTimes: map[string]int{},
+		}
+		s := NewTaxService(&stub)
+		input := []models.TaxCsv{
+			{TotalIncome: 500_000, Wht: 0, Donation: 0},
+			{TotalIncome: 600_000, Wht: 40_000, Donation: 20_000},
+			{TotalIncome: 750_000, Wht: 50_000, Donation: 15_000},
+		}
+
+		_, err := s.CalculateTaxCsv(input)
+
+		stub.assertMethodWasCalled(t, "GetDeductions")
+		stub.assertMethodCalledTime(t, "GetDeductions", 1)
+		if err == nil {
+			t.Fatalf("expect error should not null")
+		}
+		assertIsEqual(t, stub.err.Error(), err.Error(), fmt.Sprintf("expect error %s but got %s", stub.err.Error(), err.Error()))
+	})
 	t.Run("given list of csv data should return list of csv response", func(t *testing.T) {
 		stub := StubTaxStore{
 			deductions: []models.Deduction{
@@ -585,26 +792,170 @@ func TestFuncCalculateTaxCsv(t *testing.T) {
 		}
 		assertObjectIsEqual(t, expect, result)
 	})
-	t.Run("given error on get deduction config should return error", func(t *testing.T) {
+	t.Run("given list of csv data with k-receipt should return list of csv response", func(t *testing.T) {
 		stub := StubTaxStore{
-			err:             errors.New("error 'xxx' occured"),
+			deductions: []models.Deduction{
+				{Slug: models.DonationSlug, Amount: 100_000},
+				{Slug: models.PersonalSlug, Amount: 60_000},
+				{Slug: models.KReceiptSlug, Amount: 50_000},
+			},
 			expectToCall:    map[string]bool{},
 			expectCallTimes: map[string]int{},
 		}
 		s := NewTaxService(&stub)
 		input := []models.TaxCsv{
-			{TotalIncome: 500_000, Wht: 0, Donation: 0},
-			{TotalIncome: 600_000, Wht: 40_000, Donation: 20_000},
-			{TotalIncome: 750_000, Wht: 50_000, Donation: 15_000},
+			{TotalIncome: 500_000, Wht: 0, Donation: 0, KReceipt: 0},
+			{TotalIncome: 600_000, Wht: 40_000, Donation: 20_000, KReceipt: 10_000},
+			{TotalIncome: 750_000, Wht: 50_000, Donation: 15_000, KReceipt: 10_000},
+			{TotalIncome: 500_000, Wht: 0, Donation: 100_000, KReceipt: 200_000},
 		}
 
-		_, err := s.CalculateTaxCsv(input)
+		result, err := s.CalculateTaxCsv(input)
 
+		assertIsNil(t, err, expectNilErrMsg)
 		stub.assertMethodWasCalled(t, "GetDeductions")
 		stub.assertMethodCalledTime(t, "GetDeductions", 1)
-		if err == nil {
-			t.Fatalf("expect error should not null")
+		expect := models.TaxCsvResponse{
+			Taxes: []models.CsvCalculateResult{
+				{
+					TotalIncome: 500_000,
+					Tax:         29_000,
+				},
+				{
+					TotalIncome: 600_000,
+					TaxRefund:   3_500,
+				},
+				{
+					TotalIncome: 750_000,
+					Tax:         9_750,
+				},
+				{
+					TotalIncome: 500_000,
+					Tax:         14_000,
+				},
+			},
 		}
-		assertIsEqual(t, stub.err.Error(), err.Error(), fmt.Sprintf("expect error %s but got %s", stub.err.Error(), err.Error()))
+		assertObjectIsEqual(t, expect, result)
+	})
+}
+
+func TestGetDeductionConfig(t *testing.T) {
+	stub := initStub(nil, nil)
+	s := NewTaxService(&stub)
+	t.Run("given get no row error from database should return default value of each deduction", func(t *testing.T) {
+		stub.err = sql.ErrNoRows
+		stub.deductions = nil
+
+		personal, donation, kReceipt, err := s.GetDeductionConfig()
+
+		assertIsNil(t, err, expectNilErrMsg)
+		assertIsEqual(t, personal.Amount, DefaultPersonalDeduction, fmt.Sprintf("expect personal deduction is %.2f but got %.2f", DefaultPersonalDeduction, personal.Amount))
+		assertIsEqual(t, donation.Amount, DefaultDonationDeduction, fmt.Sprintf("expect donation deduction is %.2f but got %.2f", DefaultDonationDeduction, donation.Amount))
+		assertIsEqual(t, kReceipt.Amount, DefaultKReceiptDeduction, fmt.Sprintf("expect k-receipt deduction is %.2f but got %.2f", DefaultKReceiptDeduction, kReceipt.Amount))
+	})
+	t.Run("given get error that is not 'no row' should return error", func(t *testing.T) {
+		stub.err = errors.New("error 'xxx' occured")
+		stub.deductions = nil
+
+		_, _, _, err := s.GetDeductionConfig()
+
+		if err == nil {
+			t.Fatal("expect error should not be null")
+		}
+		assertIsEqual(t, stub.err, err, fmt.Sprintf("expect error %q but got %q", stub.err, err))
+	})
+	t.Run("given get some deduction from db should return value from db and default for other that no data", func(t *testing.T) {
+		stub.err = nil
+		var personal, donation, kReceipt models.Deduction
+		var err error
+		// case 1 have personal
+		stub.deductions = []models.Deduction{
+			{Slug: models.PersonalSlug, Amount: 100},
+		}
+
+		personal, donation, kReceipt, err = s.GetDeductionConfig()
+
+		assertIsNil(t, err, expectNilErrMsg)
+		assertIsEqual(t, personal.Amount, 100.0, fmt.Sprintf("expect personal deduction is %.2f but got %.2f", 100.0, personal.Amount))
+		assertIsEqual(t, donation.Amount, DefaultDonationDeduction, fmt.Sprintf("expect donation deduction is %.2f but got %.2f", DefaultDonationDeduction, donation.Amount))
+		assertIsEqual(t, kReceipt.Amount, DefaultKReceiptDeduction, fmt.Sprintf("expect k-receipt deduction is %.2f but got %.2f", DefaultKReceiptDeduction, kReceipt.Amount))
+
+		// case 2 have donation
+		stub.deductions = []models.Deduction{
+			{Slug: models.DonationSlug, Amount: 100},
+		}
+
+		personal, donation, kReceipt, err = s.GetDeductionConfig()
+
+		assertIsNil(t, err, expectNilErrMsg)
+		assertIsEqual(t, personal.Amount, DefaultPersonalDeduction, fmt.Sprintf("expect personal deduction is %.2f but got %.2f", DefaultPersonalDeduction, personal.Amount))
+		assertIsEqual(t, donation.Amount, 100.0, fmt.Sprintf("expect donation deduction is %.2f but got %.2f", 100.0, donation.Amount))
+		assertIsEqual(t, kReceipt.Amount, DefaultKReceiptDeduction, fmt.Sprintf("expect k-receipt deduction is %.2f but got %.2f", DefaultKReceiptDeduction, kReceipt.Amount))
+
+		// case 3 have k-receipt
+		stub.deductions = []models.Deduction{
+			{Slug: models.KReceiptSlug, Amount: 100},
+		}
+
+		personal, donation, kReceipt, err = s.GetDeductionConfig()
+
+		assertIsNil(t, err, expectNilErrMsg)
+		assertIsEqual(t, personal.Amount, DefaultPersonalDeduction, fmt.Sprintf("expect personal deduction is %.2f but got %.2f", DefaultPersonalDeduction, personal.Amount))
+		assertIsEqual(t, donation.Amount, DefaultDonationDeduction, fmt.Sprintf("expect donation deduction is %.2f but got %.2f", DefaultDonationDeduction, donation.Amount))
+		assertIsEqual(t, kReceipt.Amount, 100.0, fmt.Sprintf("expect k-receipt deduction is %.2f but got %.2f", 100.0, kReceipt.Amount))
+
+		// case 4 have donation and k-receipt
+		stub.deductions = []models.Deduction{
+			{Slug: models.DonationSlug, Amount: 100},
+			{Slug: models.KReceiptSlug, Amount: 200},
+		}
+
+		personal, donation, kReceipt, err = s.GetDeductionConfig()
+
+		assertIsNil(t, err, expectNilErrMsg)
+		assertIsEqual(t, personal.Amount, DefaultPersonalDeduction, fmt.Sprintf("expect personal deduction is %.2f but got %.2f", DefaultPersonalDeduction, personal.Amount))
+		assertIsEqual(t, donation.Amount, 100.0, fmt.Sprintf("expect donation deduction is %.2f but got %.2f", 100.0, donation.Amount))
+		assertIsEqual(t, kReceipt.Amount, 200.0, fmt.Sprintf("expect k-receipt deduction is %.2f but got %.2f", 200.0, kReceipt.Amount))
+
+		// case 5 have donation and personal
+		stub.deductions = []models.Deduction{
+			{Slug: models.PersonalSlug, Amount: 100},
+			{Slug: models.DonationSlug, Amount: 200},
+		}
+
+		personal, donation, kReceipt, err = s.GetDeductionConfig()
+
+		assertIsNil(t, err, expectNilErrMsg)
+		assertIsEqual(t, personal.Amount, 100.0, fmt.Sprintf("expect personal deduction is %.2f but got %.2f", 100.0, personal.Amount))
+		assertIsEqual(t, donation.Amount, 200.0, fmt.Sprintf("expect donation deduction is %.2f but got %.2f", 200.0, donation.Amount))
+		assertIsEqual(t, kReceipt.Amount, DefaultKReceiptDeduction, fmt.Sprintf("expect k-receipt deduction is %.2f but got %.2f", DefaultKReceiptDeduction, kReceipt.Amount))
+
+		// case 6 have personal and k-receipt
+		stub.deductions = []models.Deduction{
+			{Slug: models.PersonalSlug, Amount: 100},
+			{Slug: models.KReceiptSlug, Amount: 200},
+		}
+
+		personal, donation, kReceipt, err = s.GetDeductionConfig()
+
+		assertIsNil(t, err, expectNilErrMsg)
+		assertIsEqual(t, personal.Amount, 100.0, fmt.Sprintf("expect personal deduction is %.2f but got %.2f", 100.0, personal.Amount))
+		assertIsEqual(t, donation.Amount, DefaultDonationDeduction, fmt.Sprintf("expect donation deduction is %.2f but got %.2f", DefaultDonationDeduction, donation.Amount))
+		assertIsEqual(t, kReceipt.Amount, 200.0, fmt.Sprintf("expect k-receipt deduction is %.2f but got %.2f", 200.0, kReceipt.Amount))
+
+		// case 7 have all
+		stub.deductions = []models.Deduction{
+			{Slug: models.PersonalSlug, Amount: 100},
+			{Slug: models.DonationSlug, Amount: 200},
+			{Slug: models.KReceiptSlug, Amount: 300},
+		}
+
+		personal, donation, kReceipt, err = s.GetDeductionConfig()
+
+		assertIsNil(t, err, expectNilErrMsg)
+		assertIsEqual(t, personal.Amount, 100.0, fmt.Sprintf("expect personal deduction is %.2f but got %.2f", 100.0, personal.Amount))
+		assertIsEqual(t, donation.Amount, 200.0, fmt.Sprintf("expect donation deduction is %.2f but got %.2f", 200.0, donation.Amount))
+		assertIsEqual(t, kReceipt.Amount, 300.0, fmt.Sprintf("expect k-receipt deduction is %.2f but got %.2f", 300.0, kReceipt.Amount))
+
 	})
 }

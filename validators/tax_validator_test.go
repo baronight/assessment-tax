@@ -55,6 +55,7 @@ func TestValidateTaxRequest(t *testing.T) {
 		assertErrorMessage(t, ErrWhtMoreThanIncome, err)
 	})
 	t.Run("given allowance type is invalid should get error 'ErrAllowanceTypeInvalid'", func(t *testing.T) {
+		// case 1 donation case sentitive
 		err := ValidateTaxRequest(models.TaxRequest{
 			Allowances: []models.Allowance{
 				{Type: "Donation", Amount: -1},
@@ -63,12 +64,55 @@ func TestValidateTaxRequest(t *testing.T) {
 
 		assertIsNotNil(t, err)
 		assertErrorMessage(t, ErrAllowanceTypeInvalid, err)
+
+		// case 2 k-receipt case sentitive
+		err = ValidateTaxRequest(models.TaxRequest{
+			Allowances: []models.Allowance{
+				{Type: "K-Receipt", Amount: -1},
+			},
+		})
+
+		assertIsNotNil(t, err)
+		assertErrorMessage(t, ErrAllowanceTypeInvalid, err)
+
+		// case 3 kReceipt (camel case)
+		err = ValidateTaxRequest(models.TaxRequest{
+			Allowances: []models.Allowance{
+				{Type: "kReceipt", Amount: -1},
+			},
+		})
+
+		assertIsNotNil(t, err)
+		assertErrorMessage(t, ErrAllowanceTypeInvalid, err)
+
+		// case 4 k_receipt (snake case)
+		err = ValidateTaxRequest(models.TaxRequest{
+			Allowances: []models.Allowance{
+				{Type: "k_receipt", Amount: -1},
+			},
+		})
+
+		assertIsNotNil(t, err)
+		assertErrorMessage(t, ErrAllowanceTypeInvalid, err)
 	})
 	t.Run("given allowance amount is invalid should get error 'ErrAllowanceAmountInvalid'", func(t *testing.T) {
+		// case 1 donation type
 		err := ValidateTaxRequest(models.TaxRequest{
 			Allowances: []models.Allowance{
 				{Type: models.DonationSlug, Amount: 2000},
 				{Type: models.DonationSlug, Amount: -1},
+			},
+		})
+
+		assertIsNotNil(t, err)
+		assertErrorMessage(t, ErrAllowanceAmountInvalid, err)
+
+		// case 2 k-receipt type
+		err = ValidateTaxRequest(models.TaxRequest{
+			Allowances: []models.Allowance{
+				{Type: models.DonationSlug, Amount: 2000},
+				{Type: models.KReceiptSlug, Amount: 2000},
+				{Type: models.KReceiptSlug, Amount: -1},
 			},
 		})
 
@@ -82,6 +126,8 @@ func TestValidateTaxRequest(t *testing.T) {
 			Allowances: []models.Allowance{
 				{Type: models.DonationSlug, Amount: 2000},
 				{Type: models.DonationSlug, Amount: 250},
+				{Type: models.KReceiptSlug, Amount: 0},
+				{Type: models.KReceiptSlug, Amount: 50000},
 			},
 		})
 

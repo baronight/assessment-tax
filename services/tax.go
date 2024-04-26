@@ -19,6 +19,7 @@ type TaxInput struct {
 	tax      models.TaxRequest
 	personal models.Deduction
 	donation models.Deduction
+	kReceipt models.Deduction
 }
 
 type TaxService struct {
@@ -32,6 +33,7 @@ type TaxStorer interface {
 var (
 	DefaultPersonalDeduction float64 = 60_000
 	DefaultDonationDeduction float64 = 100_000
+	DefaultKReceiptDeduction float64 = 50_000
 )
 
 var TaxStep []models.TaxStep = []models.TaxStep{
@@ -48,11 +50,11 @@ func NewTaxService(db TaxStorer) *TaxService {
 	}
 }
 
-func (ts *TaxService) GetDeductionConfig() (personal, donation models.Deduction, err error) {
+func (ts *TaxService) GetDeductionConfig() (personal, donation, kReceipt models.Deduction, err error) {
 	var deductions map[string]models.Deduction = map[string]models.Deduction{}
 	ds, err := ts.Db.GetDeductions()
 	if err != nil && err != sql.ErrNoRows {
-		return personal, donation, err
+		return personal, donation, kReceipt, err
 	}
 
 	for _, v := range ds {
@@ -62,29 +64,39 @@ func (ts *TaxService) GetDeductionConfig() (personal, donation models.Deduction,
 			donation = v
 		case models.PersonalSlug:
 			personal = v
+		case models.KReceiptSlug:
+			kReceipt = v
 		}
 	}
 
-	if personal.Amount == 0 {
+	// no personal data in db
+	if personal.Amount == 0 && personal.Slug == "" {
 		personal.Amount = DefaultPersonalDeduction
+		personal.Slug = models.PersonalSlug
 	}
-
-	if donation.Amount == 0 {
+	// no donation data in db
+	if donation.Amount == 0 && donation.Slug == "" {
 		donation.Amount = DefaultDonationDeduction
+		donation.Slug = models.DonationSlug
+	}
+	// no k-receipt data in db
+	if kReceipt.Amount == 0 && kReceipt.Slug == "" {
+		kReceipt.Amount = DefaultKReceiptDeduction
+		kReceipt.Slug = models.KReceiptSlug
 	}
 
-	return personal, donation, nil
+	return personal, donation, kReceipt, nil
 }
 
-func CalculateDonation(allowances []models.Allowance, donation models.Deduction) (amount float64) {
+func CalculateDeductionByType(typeSlug string, allowances []models.Allowance, deduction models.Deduction) (amount float64) {
 	for _, allowance := range allowances {
-		if allowance.Type == models.DonationSlug {
+		if allowance.Type == typeSlug {
 			amount += allowance.Amount
 		}
 	}
 
-	if donation.Amount != 0 && amount > donation.Amount {
-		amount = donation.Amount
+	if deduction.Amount != 0 && amount > deduction.Amount {
+		amount = deduction.Amount
 	}
 	return
 }
@@ -93,8 +105,12 @@ func CalculateTaxOutput(input TaxInput) models.TaxResponse {
 	tax := input.tax
 	personal := input.personal
 	donation := input.donation
+	kReceipt := input.kReceipt
 
-	netIncome := tax.TotalIncome - personal.Amount - CalculateDonation(tax.Allowances, donation)
+	netIncome := tax.TotalIncome -
+		personal.Amount -
+		CalculateDeductionByType(models.DonationSlug, tax.Allowances, donation) -
+		CalculateDeductionByType(models.KReceiptSlug, tax.Allowances, kReceipt)
 	var result models.TaxResponse
 	result.TaxLevel = []models.TaxLevel{}
 	for _, v := range TaxStep {
@@ -135,7 +151,7 @@ func CalculateTaxOutput(input TaxInput) models.TaxResponse {
 }
 
 func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, error) {
-	personal, donation, err := ts.GetDeductionConfig()
+	personal, donation, kReceipt, err := ts.GetDeductionConfig()
 	if err != nil {
 		return models.TaxResponse{}, err
 	}
@@ -144,6 +160,7 @@ func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, e
 		tax:      tax,
 		personal: personal,
 		donation: donation,
+		kReceipt: kReceipt,
 	})
 	return result, nil
 }
@@ -212,7 +229,7 @@ func (ts *TaxService) CalculateTaxCsv(taxes []models.TaxCsv) (models.TaxCsvRespo
 		Taxes: []models.CsvCalculateResult{},
 	}
 
-	personal, donation, err := ts.GetDeductionConfig()
+	personal, donation, kReceipt, err := ts.GetDeductionConfig()
 	if err != nil {
 		return result, err
 	}
@@ -221,6 +238,7 @@ func (ts *TaxService) CalculateTaxCsv(taxes []models.TaxCsv) (models.TaxCsvRespo
 		taxOutput := CalculateTaxOutput(TaxInput{
 			personal: personal,
 			donation: donation,
+			kReceipt: kReceipt,
 			tax:      TransformTaxCsvToTaxRequest(tax),
 		})
 		result.Taxes = append(result.Taxes, models.CsvCalculateResult{
