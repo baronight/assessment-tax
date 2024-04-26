@@ -39,7 +39,7 @@ func (s *StubAdminServicer) ValidateDeductionRequest(slug string, amount float64
 	s.expectCallTimes["ValidateDeductionRequest"]++
 	return s.errValidate
 }
-func (s *StubAdminServicer) UpdateDeductionConfig(deduction models.DeductionRequest) (models.Deduction, error) {
+func (s *StubAdminServicer) UpdateDeductionConfig(slug string, deduction models.DeductionRequest) (models.Deduction, error) {
 	s.expectToCall["UpdateDeductionConfig"] = true
 	s.expectCallTimes["UpdateDeductionConfig"]++
 	return s.deduction, s.err
@@ -86,13 +86,13 @@ func setupAdminHandler(config AdminRequestConfig) (res *httptest.ResponseRecorde
 func TestPersonalDeductionConfigHandler(t *testing.T) {
 	os.Setenv("ADMIN_USERNAME", "adminTax")
 	os.Setenv("ADMIN_PASSWORD", "admin!")
-
+	url := "/admin/deductions/personal"
 	t.Run("given invalid authentication should return status 401", func(t *testing.T) {
 		body, _ := json.Marshal(models.DeductionRequest{Amount: 60_000})
 		res, c, h, stub, mw := setupAdminHandler(
 			AdminRequestConfig{
 				method: http.MethodPost,
-				url:    "/admin/deductions/personal",
+				url:    url,
 				user:   "hello",
 				pass:   "world",
 				body:   strings.NewReader(string(body)),
@@ -117,7 +117,7 @@ func TestPersonalDeductionConfigHandler(t *testing.T) {
 		res, c, h, stub, mw := setupAdminHandler(
 			AdminRequestConfig{
 				method: http.MethodPost,
-				url:    "/admin/deductions/personal",
+				url:    url,
 				user:   "adminTax",
 				pass:   "admin!",
 				body:   strings.NewReader(string(body)),
@@ -146,7 +146,7 @@ func TestPersonalDeductionConfigHandler(t *testing.T) {
 		res, c, h, stub, mw := setupAdminHandler(
 			AdminRequestConfig{
 				method: http.MethodPost,
-				url:    "/admin/deductions/personal",
+				url:    url,
 				user:   "adminTax",
 				pass:   "admin!",
 				body:   strings.NewReader(string(body)),
@@ -175,7 +175,7 @@ func TestPersonalDeductionConfigHandler(t *testing.T) {
 		res, c, h, stub, mw := setupAdminHandler(
 			AdminRequestConfig{
 				method: http.MethodPost,
-				url:    "/admin/deductions/personal",
+				url:    url,
 				user:   "adminTax",
 				pass:   "admin!",
 				body:   strings.NewReader(string(body)),
@@ -204,7 +204,7 @@ func TestPersonalDeductionConfigHandler(t *testing.T) {
 		res, c, h, stub, mw := setupAdminHandler(
 			AdminRequestConfig{
 				method: http.MethodPost,
-				url:    "/admin/deductions/personal",
+				url:    url,
 				user:   "adminTax",
 				pass:   "admin!",
 				body:   strings.NewReader(string(body)),
@@ -227,6 +227,159 @@ func TestPersonalDeductionConfigHandler(t *testing.T) {
 		assertHttpCode(t, http.StatusOK, statusCode)
 		want := models.PersonalResponse{Amount: 60_000}
 		var got models.PersonalResponse
+		if err := json.Unmarshal(res.Body.Bytes(), &got); err != nil {
+			t.Errorf("expect response body to be valid json but got %s", res.Body.String())
+		}
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("expect %#v but got %#v", want, got)
+		}
+	})
+}
+
+func TestKReceiptDeductionConfigHandler(t *testing.T) {
+	os.Setenv("ADMIN_USERNAME", "adminTax")
+	os.Setenv("ADMIN_PASSWORD", "admin!")
+	url := "/admin/deductions/k-receipt"
+	t.Run("given invalid authentication should return status 401", func(t *testing.T) {
+		body, _ := json.Marshal(models.DeductionRequest{Amount: 60_000})
+		res, c, h, stub, mw := setupAdminHandler(
+			AdminRequestConfig{
+				method: http.MethodPost,
+				url:    url,
+				user:   "hello",
+				pass:   "world",
+				body:   strings.NewReader(string(body)),
+			},
+		)
+
+		err := mw(func(c echo.Context) error {
+			return h.KReceiptDeductionConfigHandler(c)
+		})(c)
+
+		var statusCode int
+		statusCode = res.Code
+		if err != nil {
+			statusCode = err.(*echo.HTTPError).Code
+		}
+		stub.assertMethodWasNotCalled(t, "ValidateDeductionRequest")
+		stub.assertMethodWasNotCalled(t, "UpdateDeductionConfig")
+		assertHttpCode(t, http.StatusUnauthorized, statusCode)
+	})
+	t.Run("given amount is invalid should return 400 with error message from validate function", func(t *testing.T) {
+		body, _ := json.Marshal(models.DeductionRequest{Amount: 900_000})
+		res, c, h, stub, mw := setupAdminHandler(
+			AdminRequestConfig{
+				method: http.MethodPost,
+				url:    url,
+				user:   "adminTax",
+				pass:   "admin!",
+				body:   strings.NewReader(string(body)),
+			},
+		)
+		stub.errValidate = errors.New("error 'xxx' occured")
+
+		err := mw(func(c echo.Context) error {
+			return h.KReceiptDeductionConfigHandler(c)
+		})(c)
+
+		var statusCode int
+		statusCode = res.Code
+		if err != nil {
+			statusCode = err.(*echo.HTTPError).Code
+		}
+		stub.assertMethodWasCalled(t, "ValidateDeductionRequest")
+		stub.assertMethodCalledTime(t, "ValidateDeductionRequest", 1)
+		stub.assertMethodWasNotCalled(t, "UpdateDeductionConfig")
+		assertHttpCode(t, http.StatusBadRequest, statusCode)
+		got := decodeErrorResponse(t, res)
+		assertErrorMessage(t, stub.errValidate.Error(), got.Message)
+	})
+	t.Run("given no found k-receipt data in database should return 404 with message 'data not found'", func(t *testing.T) {
+		body, _ := json.Marshal(models.DeductionRequest{Amount: 60_000})
+		res, c, h, stub, mw := setupAdminHandler(
+			AdminRequestConfig{
+				method: http.MethodPost,
+				url:    url,
+				user:   "adminTax",
+				pass:   "admin!",
+				body:   strings.NewReader(string(body)),
+			},
+		)
+		stub.err = sql.ErrNoRows
+
+		err := mw(func(c echo.Context) error {
+			return h.KReceiptDeductionConfigHandler(c)
+		})(c)
+
+		var statusCode int
+		statusCode = res.Code
+		if err != nil {
+			statusCode = err.(*echo.HTTPError).Code
+		}
+		stub.assertMethodWasCalled(t, "ValidateDeductionRequest")
+		stub.assertMethodWasCalled(t, "UpdateDeductionConfig")
+		stub.assertMethodCalledTime(t, "UpdateDeductionConfig", 1)
+		assertHttpCode(t, http.StatusNotFound, statusCode)
+		got := decodeErrorResponse(t, res)
+		assertErrorMessage(t, "data not found", got.Message)
+	})
+	t.Run("given error on call 'UpdateDeductionConfig' should return status 500 with message 'internal server error'", func(t *testing.T) {
+		body, _ := json.Marshal(models.DeductionRequest{Amount: 60_000})
+		res, c, h, stub, mw := setupAdminHandler(
+			AdminRequestConfig{
+				method: http.MethodPost,
+				url:    url,
+				user:   "adminTax",
+				pass:   "admin!",
+				body:   strings.NewReader(string(body)),
+			},
+		)
+		stub.err = errors.New("error 'xxx' occured")
+
+		err := mw(func(c echo.Context) error {
+			return h.KReceiptDeductionConfigHandler(c)
+		})(c)
+
+		var statusCode int
+		statusCode = res.Code
+		if err != nil {
+			statusCode = err.(*echo.HTTPError).Code
+		}
+		stub.assertMethodWasCalled(t, "ValidateDeductionRequest")
+		stub.assertMethodWasCalled(t, "UpdateDeductionConfig")
+		stub.assertMethodCalledTime(t, "UpdateDeductionConfig", 1)
+		assertHttpCode(t, http.StatusInternalServerError, statusCode)
+		got := decodeErrorResponse(t, res)
+		assertErrorMessage(t, utils.ErrInternalServer.Error(), got.Message)
+	})
+	t.Run("given valid amount should return 200 with updated k-receipt deduction amount", func(t *testing.T) {
+		body, _ := json.Marshal(models.DeductionRequest{Amount: 60_000})
+		res, c, h, stub, mw := setupAdminHandler(
+			AdminRequestConfig{
+				method: http.MethodPost,
+				url:    url,
+				user:   "adminTax",
+				pass:   "admin!",
+				body:   strings.NewReader(string(body)),
+			},
+		)
+		stub.deduction = models.Deduction{Amount: 60_000}
+
+		err := mw(func(c echo.Context) error {
+			return h.KReceiptDeductionConfigHandler(c)
+		})(c)
+
+		var statusCode int
+		statusCode = res.Code
+		if err != nil {
+			statusCode = err.(*echo.HTTPError).Code
+		}
+		stub.assertMethodWasCalled(t, "ValidateDeductionRequest")
+		stub.assertMethodWasCalled(t, "UpdateDeductionConfig")
+		stub.assertMethodCalledTime(t, "UpdateDeductionConfig", 1)
+		assertHttpCode(t, http.StatusOK, statusCode)
+		want := models.KReceiptResponse{Amount: 60_000}
+		var got models.KReceiptResponse
 		if err := json.Unmarshal(res.Body.Bytes(), &got); err != nil {
 			t.Errorf("expect response body to be valid json but got %s", res.Body.String())
 		}

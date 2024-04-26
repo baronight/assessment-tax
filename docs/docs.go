@@ -15,6 +15,59 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/deductions/k-receipt": {
+            "post": {
+                "description": "To setting k-receipt deduction amount for use in tax calculate",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin",
+                    "deduction"
+                ],
+                "summary": "K-Receipt Deduction Config API",
+                "parameters": [
+                    {
+                        "description": "new amount that you want to set",
+                        "name": "tax",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/DeductionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/kReceiptResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "validate error or cannot get body",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "data not found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/deductions/personal": {
             "post": {
                 "description": "To setting personal deduction amount for use in tax calculate",
@@ -272,6 +325,14 @@ const docTemplate = `{
                     }
                 },
                 "taxRefund": {
+                    "type": "number"
+                }
+            }
+        },
+        "kReceiptResponse": {
+            "type": "object",
+            "properties": {
+                "kReceipt": {
                     "type": "number"
                 }
             }

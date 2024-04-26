@@ -227,7 +227,7 @@ func TestUpdateDeductionConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			service := setupAdminService(tc.stub)
 
-			result, err := service.UpdateDeductionConfig(tc.params)
+			result, err := service.UpdateDeductionConfig("test", tc.params)
 
 			// verify get deduction was called
 			tc.stub.assertMethodWasCalled(t, "GetDeduction")
