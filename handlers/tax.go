@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/baronight/assessment-tax/models"
@@ -15,6 +16,8 @@ type TaxHandlers struct {
 
 type TaxServicer interface {
 	TaxCalculate(tax models.TaxRequest) (models.TaxResponse, error)
+	ExtractCsv(reader io.Reader) ([]models.TaxCsv, error)
+	CalculateTaxCsv(taxes []models.TaxCsv) (models.TaxCsvResponse, error)
 }
 
 func NewTaxHandlers(service TaxServicer) *TaxHandlers {
@@ -51,5 +54,44 @@ func (h *TaxHandlers) TaxCalculateHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Message: utils.ErrInternalServer.Error()})
 	}
 
+	return c.JSON(http.StatusOK, result)
+}
+
+// TaxUploadCsvHandler
+//
+// @Summary Tax Calculate From CSV file API
+// @Description To calculate personal tax from csv file and return list of total income, tax and tax refund of each row data
+// @Tags tax
+// @Accept mpfd
+// @Produce json
+// @Param taxFile formData file true "csv tax file"
+// @Success 200 {object} TaxCsvResponse
+// @Router /tax/calculations/upload-csv [post]
+// @Failure 400 {object} ErrorResponse "validate error or cannot get file"
+// @Failure 500 {object} ErrorResponse "internal server error"
+func (h *TaxHandlers) TaxUploadCsvHandler(c echo.Context) error {
+	file, err := c.FormFile("taxFile")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Message: err.Error()})
+	}
+	if fileType := file.Header.Get("Content-Type"); fileType != "text/csv" {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Message: "support only csv file"})
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Message: err.Error()})
+	}
+	defer src.Close()
+
+	csv, err := h.Service.ExtractCsv(src)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Message: err.Error()})
+	}
+
+	result, err := h.Service.CalculateTaxCsv(csv)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Message: utils.ErrInternalServer.Error()})
+	}
 	return c.JSON(http.StatusOK, result)
 }

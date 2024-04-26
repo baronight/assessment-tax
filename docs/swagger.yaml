@@ -12,6 +12,15 @@ definitions:
     required:
     - allowanceType
     type: object
+  CsvCalculateResult:
+    properties:
+      tax:
+        type: number
+      taxRefund:
+        type: number
+      totalIncome:
+        type: number
+    type: object
   DeductionRequest:
     properties:
       amount:
@@ -26,6 +35,13 @@ definitions:
     properties:
       personalDeduction:
         type: number
+    type: object
+  TaxCsvResponse:
+    properties:
+      taxes:
+        items:
+          $ref: '#/definitions/CsvCalculateResult'
+        type: array
     type: object
   TaxLevel:
     properties:
@@ -130,6 +146,36 @@ paths:
           schema:
             $ref: '#/definitions/ErrorResponse'
       summary: Tax Calculate API
+      tags:
+      - tax
+  /tax/calculations/upload-csv:
+    post:
+      consumes:
+      - multipart/form-data
+      description: To calculate personal tax from csv file and return list of total
+        income, tax and tax refund of each row data
+      parameters:
+      - description: csv tax file
+        in: formData
+        name: taxFile
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TaxCsvResponse'
+        "400":
+          description: validate error or cannot get file
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Tax Calculate From CSV file API
       tags:
       - tax
 swagger: "2.0"

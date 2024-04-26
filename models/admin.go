@@ -1,9 +1,9 @@
 package models
 
 type DeductionRequest struct {
-	Amount float32 `json:"amount"`
+	Amount float64 `json:"amount"`
 } //@Name DeductionRequest
 
 type PersonalResponse struct {
-	Amount float32 `json:"personalDeduction"`
+	Amount float64 `json:"personalDeduction"`
 } //@Name PersonalResponse

@@ -2,6 +2,7 @@ package validators
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/baronight/assessment-tax/models"
 )
@@ -31,14 +32,30 @@ func ValidateTaxRequest(tax models.TaxRequest) error {
 	return nil
 }
 
-func ValidateTotalIncome(totalIncome float32) error {
+func ValidateTaxCsv(csv models.TaxCsv) error {
+	if err := ValidateTotalIncome(csv.TotalIncome); err != nil {
+		return err
+	}
+	if err := ValidateWht(csv.Wht, csv.TotalIncome); err != nil {
+		return err
+	}
+	if err := ValidateDeduction(models.DonationSlug, csv.Donation); err != nil {
+		return err
+	}
+	if err := ValidateDeduction(models.KReceiptSlug, csv.KReceipt); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ValidateTotalIncome(totalIncome float64) error {
 	if totalIncome < 0 {
 		return ErrTotalIncomeInvalid
 	}
 	return nil
 }
 
-func ValidateWht(wht, totalIncome float32) error {
+func ValidateWht(wht, totalIncome float64) error {
 	if wht < 0 {
 		return ErrWhtInvalid
 	}
@@ -54,6 +71,13 @@ func ValidateAllowance(allowance models.Allowance) error {
 	}
 	if allowance.Amount < 0 {
 		return ErrAllowanceAmountInvalid
+	}
+	return nil
+}
+
+func ValidateDeduction(deduction string, amount float64) error {
+	if amount < 0 {
+		return fmt.Errorf("%s amount should be more than or equal 0", deduction)
 	}
 	return nil
 }

@@ -2,11 +2,24 @@ package services
 
 import (
 	"database/sql"
+	"encoding/csv"
+	"errors"
+	"io"
+	"math"
+	"slices"
+	"strconv"
 
 	"github.com/baronight/assessment-tax/models"
+	"github.com/baronight/assessment-tax/validators"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
+
+type TaxInput struct {
+	tax      models.TaxRequest
+	personal models.Deduction
+	donation models.Deduction
+}
 
 type TaxService struct {
 	Db TaxStorer
@@ -17,8 +30,8 @@ type TaxStorer interface {
 }
 
 var (
-	DefaultPersonalDeduction float32 = 60_000
-	DefaultDonationDeduction float32 = 100_000
+	DefaultPersonalDeduction float64 = 60_000
+	DefaultDonationDeduction float64 = 100_000
 )
 
 var TaxStep []models.TaxStep = []models.TaxStep{
@@ -63,7 +76,7 @@ func (ts *TaxService) GetDeductionConfig() (personal, donation models.Deduction,
 	return personal, donation, nil
 }
 
-func CalculateDonation(allowances []models.Allowance, donation models.Deduction) (amount float32) {
+func CalculateDonation(allowances []models.Allowance, donation models.Deduction) (amount float64) {
 	for _, allowance := range allowances {
 		if allowance.Type == models.DonationSlug {
 			amount += allowance.Amount
@@ -76,17 +89,16 @@ func CalculateDonation(allowances []models.Allowance, donation models.Deduction)
 	return
 }
 
-func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, error) {
-	personal, donation, err := ts.GetDeductionConfig()
-	if err != nil {
-		return models.TaxResponse{}, err
-	}
+func CalculateTaxOutput(input TaxInput) models.TaxResponse {
+	tax := input.tax
+	personal := input.personal
+	donation := input.donation
 
 	netIncome := tax.TotalIncome - personal.Amount - CalculateDonation(tax.Allowances, donation)
 	var result models.TaxResponse
 	result.TaxLevel = []models.TaxLevel{}
 	for _, v := range TaxStep {
-		var taxStep float32
+		var taxStep float64
 		p := message.NewPrinter(language.English)
 		level := p.Sprintf("%.0f-%.0f", v.MinIncome+1, v.MaxIncome)
 		overflowStep := netIncome - v.MaxIncome
@@ -113,11 +125,109 @@ func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, e
 
 	if tax.Wht > result.Tax {
 		// over payment tax should refund
-		result.TaxRefund = tax.Wht - result.Tax
+		result.TaxRefund = math.Round((tax.Wht-result.Tax)*100) / 100
 		result.Tax = 0
 	} else {
-		result.Tax = result.Tax - tax.Wht
+		result.Tax = math.Round((result.Tax-tax.Wht)*100) / 100
 	}
 
+	return result
+}
+
+func (ts *TaxService) TaxCalculate(tax models.TaxRequest) (models.TaxResponse, error) {
+	personal, donation, err := ts.GetDeductionConfig()
+	if err != nil {
+		return models.TaxResponse{}, err
+	}
+
+	result := CalculateTaxOutput(TaxInput{
+		tax:      tax,
+		personal: personal,
+		donation: donation,
+	})
+	return result, nil
+}
+
+func (ts *TaxService) ExtractCsv(reader io.Reader) ([]models.TaxCsv, error) {
+	taxes := []models.TaxCsv{}
+	csvReader := csv.NewReader(reader)
+	rows, err := csvReader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	header := rows[0]
+	if !validators.IsAllStringInArray(header, []string{"totalIncome", "wht", "donation"}) {
+		return nil, errors.New("missing required header field")
+	}
+	for _, row := range rows[1:] {
+		var tax models.TaxCsv
+		for idx, col := range row {
+			if !slices.Contains([]string{"totalIncome", "wht", "donation", "k-receipt"}, header[idx]) {
+				continue
+			}
+			if col == "" {
+				return nil, errors.New("value should not be empty")
+			}
+			val, err := strconv.ParseFloat(col, 64)
+			if err != nil {
+				return nil, err
+			}
+			switch header[idx] {
+			case "totalIncome":
+				tax.TotalIncome = val
+			case "wht":
+				tax.Wht = val
+			case "donation":
+				tax.Donation = val
+			case "k-receipt":
+				tax.KReceipt = val
+			}
+		}
+		// validate each row data when it is all number value
+		if err := validators.ValidateTaxCsv(tax); err != nil {
+			return nil, err
+		}
+		taxes = append(taxes, tax)
+	}
+	return taxes, nil
+}
+
+func TransformTaxCsvToTaxRequest(csv models.TaxCsv) (request models.TaxRequest) {
+	request.Allowances = []models.Allowance{}
+	request.TotalIncome = csv.TotalIncome
+	request.Wht = csv.Wht
+	request.Allowances = append(request.Allowances, models.Allowance{
+		Type:   models.DonationSlug,
+		Amount: csv.Donation,
+	})
+	request.Allowances = append(request.Allowances, models.Allowance{
+		Type:   models.KReceiptSlug,
+		Amount: csv.KReceipt,
+	})
+	return
+}
+
+func (ts *TaxService) CalculateTaxCsv(taxes []models.TaxCsv) (models.TaxCsvResponse, error) {
+	var result models.TaxCsvResponse = models.TaxCsvResponse{
+		Taxes: []models.CsvCalculateResult{},
+	}
+
+	personal, donation, err := ts.GetDeductionConfig()
+	if err != nil {
+		return result, err
+	}
+
+	for _, tax := range taxes {
+		taxOutput := CalculateTaxOutput(TaxInput{
+			personal: personal,
+			donation: donation,
+			tax:      TransformTaxCsvToTaxRequest(tax),
+		})
+		result.Taxes = append(result.Taxes, models.CsvCalculateResult{
+			TotalIncome: tax.TotalIncome,
+			Tax:         taxOutput.Tax,
+			TaxRefund:   taxOutput.TaxRefund,
+		})
+	}
 	return result, nil
 }

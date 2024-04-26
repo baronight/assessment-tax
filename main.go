@@ -48,6 +48,7 @@ func main() {
 	taxHandler := handlers.NewTaxHandlers(taxService)
 	groupTax := e.Group("/tax")
 	groupTax.POST("/calculations", taxHandler.TaxCalculateHandler)
+	groupTax.POST("/calculations/upload-csv", taxHandler.TaxUploadCsvHandler)
 
 	adminService := services.NewAdminService(db)
 	adminHandler := handlers.NewAdminHandlers(adminService)

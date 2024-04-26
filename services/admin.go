@@ -18,7 +18,7 @@ type AdminService struct {
 
 type AdminStorer interface {
 	GetDeduction(slug string) (models.Deduction, error)
-	UpdateDeduction(slug string, amount float32) (models.Deduction, error)
+	UpdateDeduction(slug string, amount float64) (models.Deduction, error)
 }
 
 func NewAdminService(db AdminStorer) *AdminService {
@@ -37,7 +37,7 @@ func (as *AdminService) UpdateDeductionConfig(amount models.DeductionRequest) (r
 	return
 }
 
-func (as *AdminService) ValidateDeductionRequest(slug string, amount float32) error {
+func (as *AdminService) ValidateDeductionRequest(slug string, amount float64) error {
 	printer := message.NewPrinter(language.English)
 	deduction, err := as.Db.GetDeduction(slug)
 	if err != nil {

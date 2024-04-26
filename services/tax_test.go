@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -64,10 +67,10 @@ func setupTaxService(stub StubTaxStore) *TaxService {
 
 var expectNilErrMsg = "unexpect error should be null"
 
-func expectTaxValueMsg(want, got float32) string {
+func expectTaxValueMsg(want, got float64) string {
 	return fmt.Sprintf("expect tax should be %.2f, but got %.2f", want, got)
 }
-func expectTaxRefundValueMsg(want, got float32) string {
+func expectTaxRefundValueMsg(want, got float64) string {
 	return fmt.Sprintf("expect tax refund should be %.2f, but got %.2f", want, got)
 }
 func assertObjectIsEqual(t *testing.T, want, got interface{}) {
@@ -114,8 +117,8 @@ func TestTaxCalculate(t *testing.T) {
 				stub:   initStub([]models.Deduction{}, nil),
 			},
 			{
-				name:   "when total income is 560_000.01 then tax should be 35_000.0015",
-				want:   models.TaxResponse{Tax: 35_000.0015},
+				name:   "when total income is 560_000.01 then tax should be 35_000",
+				want:   models.TaxResponse{Tax: 35_000.00},
 				params: models.TaxRequest{TotalIncome: 560_000.01},
 				stub:   initStub([]models.Deduction{}, nil),
 			},
@@ -324,5 +327,284 @@ func TestTaxLevel(t *testing.T) {
 		}
 		assertIsNil(t, err, expectNilErrMsg)
 		assertObjectIsEqual(t, want, result)
+	})
+}
+
+func TestFuncExtractCsv(t *testing.T) {
+	openCsvFile := func(t *testing.T, filePath string) io.Reader {
+		t.Helper()
+		dir, _ := os.Getwd()
+		fileData, err := os.Open(filepath.Join(dir, filePath))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fileData
+	}
+	// missing column -> missing required header field
+	t.Run("when csv is missing required colum should return error 'missing required header field'", func(t *testing.T) {
+		stub := initStub(nil, nil)
+		s := setupTaxService(stub)
+		fileData := openCsvFile(t, "../testdata/missing-column-taxes.csv")
+
+		result, err := s.ExtractCsv(fileData)
+
+		if len(result) != 0 {
+			t.Errorf("expect result should no data")
+		}
+		if err == nil {
+			t.Fatal("error should not be null")
+		}
+		expect := errors.New("missing required header field")
+		assertObjectIsEqual(t, expect, err)
+	})
+	// missing field -> valud should not be null
+	t.Run("when csv is missing value on required field should return error 'value should not be empty'", func(t *testing.T) {
+		stub := initStub(nil, nil)
+		s := setupTaxService(stub)
+		fileData := openCsvFile(t, "../testdata/missing-value-on-required-field-taxes.csv")
+
+		result, err := s.ExtractCsv(fileData)
+
+		if len(result) != 0 {
+			t.Errorf("expect result should no data")
+		}
+		if err == nil {
+			t.Fatal("error should not be null")
+		}
+		expect := errors.New("value should not be empty")
+		assertObjectIsEqual(t, expect, err)
+	})
+	t.Run("when invalid csv field should return error message", func(t *testing.T) {
+		stub := initStub(nil, nil)
+		s := setupTaxService(stub)
+		fileData := openCsvFile(t, "../testdata/invalid-taxes.csv")
+
+		result, err := s.ExtractCsv(fileData)
+
+		if len(result) != 0 {
+			t.Errorf("expect result should no data")
+		}
+		if err == nil {
+			t.Fatal("error should not be null")
+		}
+	})
+	// valid -> extract complete and transform to tax request array
+	t.Run("when valid csv field should return array of tax csv data", func(t *testing.T) {
+		stub := initStub(nil, nil)
+		s := setupTaxService(stub)
+		fileData := openCsvFile(t, "../testdata/valid-taxes.csv")
+
+		result, err := s.ExtractCsv(fileData)
+
+		assertIsNil(t, err, expectNilErrMsg)
+		if len(result) != 3 {
+			t.Errorf("expect result length should be 3 but have %d", len(result))
+		}
+		expect := []models.TaxCsv{
+			{
+				TotalIncome: 500_000, Wht: 0, Donation: 0, KReceipt: 0,
+			},
+			{
+				TotalIncome: 600_000, Wht: 40_000, Donation: 20_000, KReceipt: 0,
+			},
+			{
+				TotalIncome: 750_000, Wht: 50_000, Donation: 15_000, KReceipt: 0,
+			},
+		}
+		assertObjectIsEqual(t, expect, result)
+	})
+	// unorder -> extract complete and transform to tax request array
+	t.Run("when csv data is unorder field should return array of tax csv data", func(t *testing.T) {
+		stub := initStub(nil, nil)
+		s := setupTaxService(stub)
+		fileData := openCsvFile(t, "../testdata/unorder-column-taxes.csv")
+
+		result, err := s.ExtractCsv(fileData)
+
+		assertIsNil(t, err, expectNilErrMsg)
+		if len(result) != 3 {
+			t.Errorf("expect result length should be 3 but have %d", len(result))
+		}
+		expect := []models.TaxCsv{
+			{
+				TotalIncome: 500_000, Wht: 0, Donation: 0, KReceipt: 0,
+			},
+			{
+				TotalIncome: 600_000, Wht: 40_000, Donation: 20_000, KReceipt: 0,
+			},
+			{
+				TotalIncome: 750_000, Wht: 50_000, Donation: 15_000, KReceipt: 0,
+			},
+		}
+		assertObjectIsEqual(t, expect, result)
+	})
+	// over column -> extract complete and transform to tax request array
+	t.Run("when csv field have more than expected should return array of tax csv data", func(t *testing.T) {
+		stub := initStub(nil, nil)
+		s := setupTaxService(stub)
+		fileData := openCsvFile(t, "../testdata/over-column-taxes.csv")
+
+		result, err := s.ExtractCsv(fileData)
+
+		t.Log(result, err)
+		assertIsNil(t, err, expectNilErrMsg)
+		if len(result) != 3 {
+			t.Errorf("expect result length should be 3 but have %d", len(result))
+		}
+		expect := []models.TaxCsv{
+			{
+				TotalIncome: 500_000, Wht: 0, Donation: 0, KReceipt: 0,
+			},
+			{
+				TotalIncome: 600_000, Wht: 40_000, Donation: 20_000, KReceipt: 10_000,
+			},
+			{
+				TotalIncome: 750_000, Wht: 50_000, Donation: 15_000, KReceipt: 10_000,
+			},
+		}
+		assertObjectIsEqual(t, expect, result)
+	})
+}
+
+func TestTransformCsvToRequest(t *testing.T) {
+	t.Run("given tax csv model should return tax request model", func(t *testing.T) {
+		var csv models.TaxCsv
+		var expect models.TaxRequest
+
+		t.Run("when csv have only total income", func(t *testing.T) {
+			csv.TotalIncome = 500_000
+
+			output := TransformTaxCsvToTaxRequest(csv)
+
+			expect.TotalIncome = 500_000
+			expect.Allowances = []models.Allowance{
+				{Type: models.DonationSlug, Amount: 0},
+				{Type: models.KReceiptSlug, Amount: 0},
+			}
+			assertObjectIsEqual(t, expect, output)
+		})
+		t.Run("when csv have total income and wht", func(t *testing.T) {
+			csv.TotalIncome = 500_000
+			csv.Wht = 25_000
+
+			output := TransformTaxCsvToTaxRequest(csv)
+
+			expect.TotalIncome = 500_000
+			expect.Wht = 25_000
+			expect.Allowances = []models.Allowance{
+				{Type: models.DonationSlug, Amount: 0},
+				{Type: models.KReceiptSlug, Amount: 0},
+			}
+			assertObjectIsEqual(t, expect, output)
+		})
+		t.Run("when csv have total income and donation", func(t *testing.T) {
+			csv.TotalIncome = 500_000
+			csv.Donation = 20_000
+
+			output := TransformTaxCsvToTaxRequest(csv)
+
+			expect.TotalIncome = 500_000
+			expect.Allowances = []models.Allowance{
+				{Type: models.DonationSlug, Amount: 20_000},
+				{Type: models.KReceiptSlug, Amount: 0},
+			}
+			assertObjectIsEqual(t, expect, output)
+		})
+		t.Run("when csv have total income, wht and donation", func(t *testing.T) {
+			csv.TotalIncome = 500_000
+			csv.Wht = 25_000
+			csv.Donation = 20_000
+
+			output := TransformTaxCsvToTaxRequest(csv)
+
+			expect.TotalIncome = 500_000
+			expect.Wht = 25_000
+			expect.Allowances = []models.Allowance{
+				{Type: models.DonationSlug, Amount: 20_000},
+				{Type: models.KReceiptSlug, Amount: 0},
+			}
+			assertObjectIsEqual(t, expect, output)
+		})
+		t.Run("when csv have all income, wht, donation and k-receipt", func(t *testing.T) {
+			csv.TotalIncome = 500_000
+			csv.Wht = 25_000
+			csv.Donation = 20_000
+			csv.KReceipt = 10_000
+
+			output := TransformTaxCsvToTaxRequest(csv)
+
+			expect.TotalIncome = 500_000
+			expect.Wht = 25_000
+			expect.Allowances = []models.Allowance{
+				{Type: models.DonationSlug, Amount: 20_000},
+				{Type: models.KReceiptSlug, Amount: 10_000},
+			}
+			assertObjectIsEqual(t, expect, output)
+		})
+	})
+}
+
+func TestFuncCalculateTaxCsv(t *testing.T) {
+	t.Run("given list of csv data should return list of csv response", func(t *testing.T) {
+		stub := StubTaxStore{
+			deductions: []models.Deduction{
+				{Slug: models.DonationSlug, Amount: 100_000},
+				{Slug: models.PersonalSlug, Amount: 60_000},
+				{Slug: models.KReceiptSlug, Amount: 50_000},
+			},
+			expectToCall:    map[string]bool{},
+			expectCallTimes: map[string]int{},
+		}
+		s := NewTaxService(&stub)
+		input := []models.TaxCsv{
+			{TotalIncome: 500_000, Wht: 0, Donation: 0},
+			{TotalIncome: 600_000, Wht: 40_000, Donation: 20_000},
+			{TotalIncome: 750_000, Wht: 50_000, Donation: 15_000},
+		}
+
+		result, err := s.CalculateTaxCsv(input)
+
+		assertIsNil(t, err, expectNilErrMsg)
+		stub.assertMethodWasCalled(t, "GetDeductions")
+		stub.assertMethodCalledTime(t, "GetDeductions", 1)
+		expect := models.TaxCsvResponse{
+			Taxes: []models.CsvCalculateResult{
+				{
+					TotalIncome: 500_000,
+					Tax:         29_000,
+				},
+				{
+					TotalIncome: 600_000,
+					TaxRefund:   2_000,
+				},
+				{
+					TotalIncome: 750_000,
+					Tax:         11_250,
+				},
+			},
+		}
+		assertObjectIsEqual(t, expect, result)
+	})
+	t.Run("given error on get deduction config should return error", func(t *testing.T) {
+		stub := StubTaxStore{
+			err:             errors.New("error 'xxx' occured"),
+			expectToCall:    map[string]bool{},
+			expectCallTimes: map[string]int{},
+		}
+		s := NewTaxService(&stub)
+		input := []models.TaxCsv{
+			{TotalIncome: 500_000, Wht: 0, Donation: 0},
+			{TotalIncome: 600_000, Wht: 40_000, Donation: 20_000},
+			{TotalIncome: 750_000, Wht: 50_000, Donation: 15_000},
+		}
+
+		_, err := s.CalculateTaxCsv(input)
+
+		stub.assertMethodWasCalled(t, "GetDeductions")
+		stub.assertMethodCalledTime(t, "GetDeductions", 1)
+		if err == nil {
+			t.Fatalf("expect error should not null")
+		}
+		assertIsEqual(t, stub.err.Error(), err.Error(), fmt.Sprintf("expect error %s but got %s", stub.err.Error(), err.Error()))
 	})
 }

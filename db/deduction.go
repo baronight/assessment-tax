@@ -39,7 +39,7 @@ func (p *Postgres) GetDeduction(slug string) (models.Deduction, error) {
 }
 
 // UpdateDeduction implements services.AdminStorer.
-func (p *Postgres) UpdateDeduction(slug string, amount float32) (models.Deduction, error) {
+func (p *Postgres) UpdateDeduction(slug string, amount float64) (models.Deduction, error) {
 	row := p.Db.QueryRow("UPDATE deductions SET amount = $1 WHERE slug = $2"+
 		" RETURNING id, slug, \"name\", amount, \"minAmount\", \"maxAmount\"",
 		amount, slug)
