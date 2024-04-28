@@ -1,0 +1,4 @@
+FROM golang:1.22.2-alpine3.19
+WORKDIR /go/src/target
+EXPOSE 8080
+CMD CGO_ENABLED=0 go test -v --tags=integration ./handlers
