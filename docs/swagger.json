@@ -10,6 +10,11 @@
     "paths": {
         "/admin/deductions/k-receipt": {
             "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
                 "description": "To setting k-receipt deduction amount for use in tax calculate",
                 "consumes": [
                     "application/json"
@@ -46,6 +51,12 @@
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "data not found",
                         "schema": {
@@ -63,6 +74,11 @@
         },
         "/admin/deductions/personal": {
             "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
                 "description": "To setting personal deduction amount for use in tax calculate",
                 "consumes": [
                     "application/json"
@@ -95,6 +111,12 @@
                     },
                     "400": {
                         "description": "validate error or cannot get body",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -329,6 +351,11 @@
                     "type": "number"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BasicAuth": {
+            "type": "basic"
         }
     }
 }

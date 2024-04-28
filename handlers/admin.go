@@ -29,12 +29,13 @@ func NewAdminHandlers(service AdminServicer) *AdminHandlers {
 // @Tags admin, deduction
 // @Accept json
 // @Produce json
-// @securityDefinitions.basic BasicAuth
+// @Security BasicAuth
 // @Param tax body DeductionRequest true "new amount that you want to set"
 // @Success 200 {object} PersonalResponse
 // @Router /admin/deductions/personal [post]
-// @Failure 404 {object} ErrorResponse "data not found"
 // @Failure 400 {object} ErrorResponse "validate error or cannot get body"
+// @Failure 401 {object} ErrorResponse "unauthorized"
+// @Failure 404 {object} ErrorResponse "data not found"
 // @Failure 500 {object} ErrorResponse "internal server error"
 func (h *AdminHandlers) PersonalDeductionConfigHandler(c echo.Context) error {
 	body := new(models.DeductionRequest)
@@ -69,12 +70,13 @@ func (h *AdminHandlers) PersonalDeductionConfigHandler(c echo.Context) error {
 // @Tags admin, deduction
 // @Accept json
 // @Produce json
-// @securityDefinitions.basic BasicAuth
+// @Security BasicAuth
 // @Param tax body DeductionRequest true "new amount that you want to set"
 // @Success 200 {object} kReceiptResponse
 // @Router /admin/deductions/k-receipt [post]
-// @Failure 404 {object} ErrorResponse "data not found"
 // @Failure 400 {object} ErrorResponse "validate error or cannot get body"
+// @Failure 401 {object} ErrorResponse "unauthorized"
+// @Failure 404 {object} ErrorResponse "data not found"
 // @Failure 500 {object} ErrorResponse "internal server error"
 func (h *AdminHandlers) KReceiptDeductionConfigHandler(c echo.Context) error {
 	body := new(models.DeductionRequest)

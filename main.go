@@ -19,6 +19,8 @@ import (
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
+// @securityDefinitions.basic BasicAuth
+
 // @title			K-Tax API
 // @version		1.0
 // @description	K-Tax Calculate API
