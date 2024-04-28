@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	VALID_DB_ENV   string = "host=localhost port=5433 user=postgres password=postgres dbname=ktaxes sslmode=disable"
+	VALID_DB_ENV   string = "host=localhost port=5432 user=postgres password=postgres dbname=ktaxes sslmode=disable"
 	INVALID_DB_ENV string = "helloworld"
 )
 
