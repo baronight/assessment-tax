@@ -49,26 +49,25 @@ func TestITTaxCalculations(t *testing.T) {
 	res := clientITRequest(
 		http.MethodPost,
 		os.Getenv("API_URL")+"/tax/calculations",
-		io.NopCloser(
-			strings.NewReader(
-				`{
-				"totalIncome": 500000.0,
-				"wht": 0.0,
-				"allowances": [
-					{
-						"allowanceType": "donation",
-						"amount": 0.0
-					}
-				]
-			}`),
-		),
+		strings.NewReader(
+			`{
+			"totalIncome": 500000.0,
+			"wht": 0.0,
+			"allowances": [
+				{
+					"allowanceType": "donation",
+					"amount": 0.0
+				}
+			]
+		}`),
 		"aplication/json",
 		"",
 		"",
 	)
 
-	if err := json.Unmarshal(res.Body.Bytes(), &got); err != nil {
-		t.Errorf("expect response body to be valid json but got %s", res.Body.String())
+	err := res.Decode(&got)
+	if err != nil {
+		t.Errorf("expect response body to be valid json but got %q", err)
 	}
 	assertHttpCode(t, http.StatusOK, res.StatusCode)
 
@@ -137,8 +136,9 @@ func TestITCsvCalculate(t *testing.T) {
 		"",
 	)
 
-	if err := json.Unmarshal(res.Body.Bytes(), &got); err != nil {
-		t.Errorf("expect response body to be valid json but got %s", res.Body.String())
+	err = res.Decode(&got)
+	if err != nil {
+		t.Errorf("expect response body to be valid json but got %q", err)
 	}
 	assertHttpCode(t, http.StatusOK, res.StatusCode)
 
