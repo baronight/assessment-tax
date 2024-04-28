@@ -110,6 +110,10 @@ paths:
           description: validate error or cannot get body
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: data not found
           schema:
@@ -118,6 +122,8 @@ paths:
           description: internal server error
           schema:
             $ref: '#/definitions/ErrorResponse'
+      security:
+      - BasicAuth: []
       summary: K-Receipt Deduction Config API
       tags:
       - admin
@@ -145,6 +151,10 @@ paths:
           description: validate error or cannot get body
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: data not found
           schema:
@@ -153,6 +163,8 @@ paths:
           description: internal server error
           schema:
             $ref: '#/definitions/ErrorResponse'
+      security:
+      - BasicAuth: []
       summary: Personal Deduction Config API
       tags:
       - admin
@@ -218,4 +230,7 @@ paths:
       summary: Tax Calculate From CSV file API
       tags:
       - tax
+securityDefinitions:
+  BasicAuth:
+    type: basic
 swagger: "2.0"

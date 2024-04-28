@@ -17,6 +17,11 @@ const docTemplate = `{
     "paths": {
         "/admin/deductions/k-receipt": {
             "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
                 "description": "To setting k-receipt deduction amount for use in tax calculate",
                 "consumes": [
                     "application/json"
@@ -53,6 +58,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "401": {
+                        "description": "unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "data not found",
                         "schema": {
@@ -70,6 +81,11 @@ const docTemplate = `{
         },
         "/admin/deductions/personal": {
             "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
                 "description": "To setting personal deduction amount for use in tax calculate",
                 "consumes": [
                     "application/json"
@@ -102,6 +118,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "validate error or cannot get body",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "unauthorized",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -336,6 +358,11 @@ const docTemplate = `{
                     "type": "number"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BasicAuth": {
+            "type": "basic"
         }
     }
 }`
