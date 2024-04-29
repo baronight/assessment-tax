@@ -23,7 +23,7 @@ func TestITPersonalDeduction(t *testing.T) {
 			`{
 			"amount": 60000.0
 		}`),
-		"aplication/json",
+		"application/json;charset=UTF-8",
 		"adminTax",
 		"admin!",
 	)
@@ -42,7 +42,7 @@ func TestITPersonalDeduction(t *testing.T) {
 }
 
 func TestITKReceiptDeduction(t *testing.T) {
-	var got models.PersonalResponse
+	var got models.KReceiptResponse
 
 	res := clientITRequest(
 		http.MethodPost,
@@ -51,7 +51,7 @@ func TestITKReceiptDeduction(t *testing.T) {
 			`{
 			"amount": 70000.0
 		}`),
-		"aplication/json",
+		"application/json;charset=UTF-8",
 		"adminTax",
 		"admin!",
 	)
