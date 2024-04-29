@@ -43,8 +43,8 @@ services:
       POSTGRES_DB: ktaxes 
     volumes: 
       - ./migrations/init.sql:/docker-entrypoint-initdb.d/init.sql 
-    ports: 
-      - '5432:5432' 
+    # ports: 
+    #   - '5432:5432' 
     networks: 
       - local_network
     restart: on-failure 

@@ -1,4 +1,3 @@
-// go:build integration
 //go:build integration
 // +build integration
 
@@ -25,6 +24,13 @@ type Response struct {
 	err error
 }
 
+func assertHttpCode(t *testing.T, expect int, got int) {
+	t.Helper()
+	if expect != got {
+		t.Errorf("expect status code %d but got %d", expect, got)
+	}
+}
+
 func clientITRequest(method, url string, body io.Reader, contentType, authUser, authPass string) *Response {
 	req, _ := http.NewRequest(method, url, body)
 	req.SetBasicAuth(authUser, authPass)
@@ -35,12 +41,17 @@ func clientITRequest(method, url string, body io.Reader, contentType, authUser, 
 }
 
 func (r *Response) Decode(v interface{}) error {
+	var body []byte
+	body, r.err = io.ReadAll(r.Body)
 	if r.err != nil {
 		return r.err
 	}
-	defer r.Body.Close()
 
-	return json.NewDecoder(r.Body).Decode(v)
+	r.err = json.Unmarshal(body, v)
+	if r.err != nil {
+		return r.err
+	}
+	return nil
 }
 
 func TestITTaxCalculations(t *testing.T) {
@@ -60,7 +71,7 @@ func TestITTaxCalculations(t *testing.T) {
 				}
 			]
 		}`),
-		"aplication/json",
+		"application/json;charset=UTF-8",
 		"",
 		"",
 	)
@@ -103,7 +114,7 @@ func TestITTaxCalculations(t *testing.T) {
 }
 
 func TestITCsvCalculate(t *testing.T) {
-	var got []models.CsvCalculateResult
+	var got models.TaxCsvResponse
 	body := new(bytes.Buffer)
 	dir, _ := os.Getwd()
 	fileData, err := os.Open(filepath.Join(dir, "../testdata/valid-taxes.csv"))
@@ -126,15 +137,22 @@ func TestITCsvCalculate(t *testing.T) {
 	} else if written == 0 {
 		t.Fatal("no content data")
 	}
+	writer.Close()
 
 	res := clientITRequest(
 		http.MethodPost,
-		os.Getenv("API_URL")+"/tax/calculations",
+		os.Getenv("API_URL")+"/tax/calculations/upload-csv",
 		body,
 		writer.FormDataContentType(),
 		"",
 		"",
 	)
+	// var errResp models.ErrorResponse
+	// respBody, err := io.ReadAll(res.Body)
+	// if err != nil {
+	// 	t.Errorf("sss %+v", err)
+	// }
+	// t.Logf("%q", string(respBody))
 
 	err = res.Decode(&got)
 	if err != nil {
